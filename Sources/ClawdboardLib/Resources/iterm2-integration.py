@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import iterm2  # type: ignore[import-untyped]  # bundled with iTerm2's Python runtime
+import iterm2  # ty: ignore[unresolved-import]  # bundled with iTerm2's Python runtime
 
 SESSIONS_DIR = Path.home() / ".clawdboard" / "sessions"
 POLL_INTERVAL = 2.0
