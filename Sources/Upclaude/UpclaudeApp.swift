@@ -328,7 +328,7 @@ struct MenuBarLabel: View {
     /// Seconds for one full fade-out/fade-in cycle of the "working" dots.
     static let pulsePeriod: TimeInterval = 4.0
     /// Lowest opacity the "working" dots fade to.
-    static let pulseMinAlpha: CGFloat = 0.1
+    static let pulseMinAlpha: CGFloat = 0.3
 
     static let dotSize: CGFloat = 8
     static let dotSpacing: CGFloat = 4

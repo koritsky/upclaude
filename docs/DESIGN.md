@@ -419,7 +419,7 @@ Shown when no sessions exist.
 | Row hover | 0.1s | ease-in-out | Background opacity 0.5↔0.8, bound to `isHovered` state |
 | Row expand/collapse | 0.15s | ease-in-out | Bound to `isExpanded` state |
 | Group collapse/expand | 0.15s | ease-in-out | Bound to `collapsedGroups` state |
-| Menu bar working dot pulse | 4s cycle | ease-in-out, autoreversing | Opacity 0.1↔1.0. The label draws working dots at 10%; `MenuBarPulseAnimator` fades full-strength dots over them with a Core Animation overlay on the status item button. The SwiftUI label itself is never animated (doing so breaks clicks). Static at full opacity when Reduce Motion is on |
+| Menu bar working dot pulse | 4s cycle | ease-in-out, autoreversing | Opacity 0.3↔1.0. The label draws working dots at 30%; `MenuBarPulseAnimator` fades full-strength dots over them with a Core Animation overlay on the status item button. The SwiftUI label itself is never animated (doing so breaks clicks). Static at full opacity when Reduce Motion is on |
 
 ---
 
