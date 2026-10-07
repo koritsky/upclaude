@@ -1,7 +1,7 @@
 import AppKit
-import ClawdboardLib
 import ServiceManagement
 import SwiftUI
+import UpclaudeLib
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -22,11 +22,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Installs a wrapper script at /usr/local/bin/clawdboard that opens the .app bundle.
+    /// Installs a wrapper script at /usr/local/bin/upclaude that opens the .app bundle.
     /// A direct symlink to the binary won't work because Bundle.main wouldn't resolve
     /// to the .app, breaking SPM resource bundle lookup.
     private func installCLISymlink() {
-        let scriptPath = "/usr/local/bin/clawdboard"
+        let scriptPath = "/usr/local/bin/upclaude"
         let appPath = Bundle.main.bundleURL.path
         let script = "#!/bin/sh\nopen \"\(appPath)\"\n"
 
@@ -53,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.messageText = "Install Session Tracking Hooks?"
         alert.informativeText = """
-            Clawdboard needs to add hooks to your Claude Code settings \
+            Upclaude needs to add hooks to your Claude Code settings \
             (~/.claude/settings.json) to track session status in real-time.
 
             This enables:
@@ -62,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             • Tracking context usage and cost per session
 
             Your existing Claude settings will be preserved. \
-            You can remove hooks anytime from Clawdboard settings.
+            You can remove hooks anytime from Upclaude settings.
             """
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Install Hooks")
@@ -86,7 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct ClawdboardApp: App {
+struct UpclaudeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState: AppState = {
         let state = AppState()
@@ -94,7 +94,7 @@ struct ClawdboardApp: App {
         return state
     }()
     var body: some Scene {
-        Window("Clawdboard", id: "main") {
+        Window("Upclaude", id: "main") {
             ZStack {
                 Color.clear
                     .background(Color(nsColor: .windowBackgroundColor).opacity(0.5))

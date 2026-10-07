@@ -1,4 +1,4 @@
-"""Tests for clawdboard-hook.py."""
+"""Tests for upclaude-hook.py."""
 
 from __future__ import annotations
 

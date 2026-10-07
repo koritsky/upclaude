@@ -1,6 +1,6 @@
 <div align="center">
 
-# Clawdboard
+# Upclaude
 
 ### Mission Control for AI Agents
 
@@ -8,26 +8,28 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![macOS](https://img.shields.io/badge/platform-macOS-black.svg)]()
-[![GitHub stars](https://img.shields.io/github/stars/apocohq/clawdboard?style=social)](https://github.com/apocohq/clawdboard/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/koritsky/upclaude?style=social)](https://github.com/koritsky/upclaude/stargazers)
 
 <!-- 🚀 Product Hunt badge goes here after launch -->
 
 </div>
 
-<p align="center"><img src="assets/demo.gif" width="640" alt="Clawdboard demo" /></p>
+<p align="center"><img src="assets/demo.gif" width="640" alt="Upclaude demo" /></p>
 
 ---
 
-You're running five agents. One needs approval. Two are stuck. **Clawdboard sits in your menu bar and shows you which Claude Code session needs your attention.** One click and you're there.
+> **Upclaude is a fork of [Clawdboard](https://github.com/apocohq/clawdboard) by [apocohq](https://github.com/apocohq).** It is developed independently and uses its own app name, bundle id, and `~/.upclaude` data directory, so it can be installed alongside the original.
+
+You're running five agents. One needs approval. Two are stuck. **Upclaude sits in your menu bar and shows you which Claude Code session needs your attention.** One click and you're there.
 
 <table align="center">
-<tr><th>Agents in your workflow</th><th>Need Clawdboard?</th></tr>
+<tr><th>Agents in your workflow</th><th>Need Upclaude?</th></tr>
 <tr><td>1–2</td><td>Probably not (yet)</td></tr>
 <tr><td>3–5</td><td>Yes</td></tr>
 <tr><td>5+</td><td>Yesterday</td></tr>
 </table>
 
-## What Clawdboard Solves
+## What Upclaude Solves
 
 **See everything at a glance**
 - Status for every session: working, waiting, needs approval, abandoned
@@ -46,42 +48,25 @@ You're running five agents. One needs approval. Two are stuck. **Clawdboard sits
 
 ## Get started
 
-### Option 1: Homebrew
+Build from source (requires Xcode with the Swift 6 toolchain):
 
 ```bash
-brew install apocohq/clawdboard/clawdboard
-open /Applications/Clawdboard.app
+git clone https://github.com/koritsky/upclaude.git
+cd upclaude
+./scripts/bundle.sh
+cp -R Upclaude.app /Applications/
+open /Applications/Upclaude.app
 ```
 
 The hooks are set up automatically when the app runs for the first time.
 
-To upgrade: `brew upgrade clawdboard`
-
-### Option 2: Build from source
-
-```bash
-git clone https://github.com/apocohq/clawdboard.git
-cd clawdboard
-```
-
-Then open Claude Code and run `/clawdboard:install` — it builds the app, installs hooks, and sets up your IDE.
-
-### Option 3: Plugin marketplace
-
-```
-/plugins marketplace add apocohq/claude-plugins
-/plugins install clawdboard@apoco-plugins
-/reload-plugins
-/clawdboard:install
-```
-
-*Yes, you use Claude Code to set up your Claude Code manager. We know.*
+There is no Homebrew cask or Claude Code plugin for Upclaude yet; the upstream `apocohq` cask and plugin install the original Clawdboard, not this fork.
 
 > See the [Setup Guide](docs/SETUP.md) for details on what gets configured and manual installation.
 
 ### JetBrains terminal tab focus
 
-For Clawdboard to focus the exact terminal tab in JetBrains IDEs, two things are needed:
+For Upclaude to focus the exact terminal tab in JetBrains IDEs, two things are needed:
 
 1. **Disable Claude Code's built-in terminal title** — add to your `~/.bashrc` or `~/.zshrc`:
    ```bash
@@ -91,7 +76,7 @@ For Clawdboard to focus the exact terminal tab in JetBrains IDEs, two things are
 
 ## How it works
 
-Clawdboard uses Claude Code's [hooks system](https://docs.anthropic.com/en/docs/claude-code/hooks) to receive real-time session events. No polling, no screen scraping, no daemon. Just hooks.
+Upclaude uses Claude Code's [hooks system](https://docs.anthropic.com/en/docs/claude-code/hooks) to receive real-time session events. No polling, no screen scraping, no daemon. Just hooks.
 
 ## Development
 
@@ -100,7 +85,7 @@ Requires: Swift 6 toolchain, [mise](https://mise.jdx.dev/)
 ```bash
 mise run setup     # Install tools and git hooks
 mise run build     # swift build
-mise run run       # swift run Clawdboard
+mise run run       # swift run Upclaude
 mise run test      # swift test
 mise run format    # Auto-fix formatting
 mise run lint      # Check formatting + lint
@@ -118,7 +103,7 @@ mise run dev
 
 ## Contributing
 
-We're building fast. If you're into Swift, macOS dev, or just want better agent tooling: [PRs welcome](https://github.com/apocohq/clawdboard/issues).
+We're building fast. If you're into Swift, macOS dev, or just want better agent tooling: [PRs welcome](https://github.com/koritsky/upclaude/issues).
 
 ## Star this repo ⭐
 
@@ -130,4 +115,4 @@ Swift 6 · SwiftUI · macOS native · [Claude Code Hooks API](https://docs.anthr
 
 ---
 
-MIT License · [Website](https://clawdboard.dev) · Built for [Claude Code](https://claude.ai/code)
+MIT License · Fork of [Clawdboard](https://github.com/apocohq/clawdboard) · Built for [Claude Code](https://claude.ai/code)

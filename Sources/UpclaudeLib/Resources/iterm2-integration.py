@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""iTerm2 AutoLaunch script for Clawdboard.
+"""iTerm2 AutoLaunch script for Upclaude.
 
-Polls ~/.clawdboard/sessions/*.json every 2s and matches Claude Code sessions
+Polls ~/.upclaude/sessions/*.json every 2s and matches Claude Code sessions
 to iTerm2 panes by PID ancestry. Writes the iTerm2 session UUID back into
-the session JSON so the Clawdboard panel can focus the correct pane.
+the session JSON so the Upclaude panel can focus the correct pane.
 
-Install to: ~/.config/iterm2/AppSupport/Scripts/AutoLaunch/clawdboard.py
+Install to: ~/.config/iterm2/AppSupport/Scripts/AutoLaunch/upclaude.py
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import iterm2  # ty: ignore[unresolved-import]  # bundled with iTerm2's Python runtime
 
-SESSIONS_DIR = Path.home() / ".clawdboard" / "sessions"
+SESSIONS_DIR = Path.home() / ".upclaude" / "sessions"
 POLL_INTERVAL = 2.0
 
 
@@ -59,7 +59,7 @@ def _get_ancestor_pids(pid: int, ppid_map: dict[int, int]) -> set[int]:
 
 
 def _read_sessions() -> list[dict[str, object]]:
-    """Read all session JSON files from ~/.clawdboard/sessions/."""
+    """Read all session JSON files from ~/.upclaude/sessions/."""
     sessions: list[dict[str, object]] = []
     if not SESSIONS_DIR.is_dir():
         return sessions
@@ -140,7 +140,7 @@ async def main(connection: iterm2.Connection) -> None:
                 if matched_pane is None:
                     continue
 
-                # Write iTerm2 session UUID back so Clawdboard can focus it
+                # Write iTerm2 session UUID back so Upclaude can focus it
                 session_file = SESSIONS_DIR / f"{sid}.json"
                 if session_file.exists():
                     await asyncio.to_thread(

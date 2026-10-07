@@ -1,6 +1,6 @@
 import Foundation
 
-/// Watches ~/.clawdboard/sessions/ for state file changes written by Claude hooks
+/// Watches ~/.upclaude/sessions/ for state file changes written by Claude hooks
 /// and the Python watcher daemon. Uses DispatchSource file system monitoring for
 /// instant detection. PID liveness cleanup is handled by the watcher daemon.
 public class SessionStateWatcher {
@@ -8,14 +8,14 @@ public class SessionStateWatcher {
     private var fileDescriptor: Int32 = -1
     private var dispatchSource: DispatchSourceFileSystemObject?
     private let onChange: ([AgentSession]) -> Void
-    private let ioQueue = DispatchQueue(label: "clawdboard.session-watcher", qos: .utility)
+    private let ioQueue = DispatchQueue(label: "upclaude.session-watcher", qos: .utility)
 
     public init(sessionsDirectory: String? = nil, onChange: @escaping ([AgentSession]) -> Void) {
         let dir =
             sessionsDirectory
             ?? {
                 let home = FileManager.default.homeDirectoryForCurrentUser
-                return home.appendingPathComponent(".clawdboard/sessions").path
+                return home.appendingPathComponent(".upclaude/sessions").path
             }()
         self.sessionsDir = URL(fileURLWithPath: dir)
         self.onChange = onChange

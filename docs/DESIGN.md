@@ -1,6 +1,6 @@
-# Clawdboard Design Manual
+# Upclaude Design Manual
 
-Component catalog documenting the visual language of the Clawdboard menu bar panel.
+Component catalog documenting the visual language of the Upclaude menu bar panel.
 Use this as a reference when making UI changes, discussing design, or onboarding contributors.
 
 Icons follow [Apple's SF Symbols HIG](https://developer.apple.com/design/human-interface-guidelines/sf-symbols). Prefer outlined variants for actions, filled for status indicators. Match symbol weight to adjacent text.
@@ -61,7 +61,7 @@ Applied to: ContextBar (horizontal, per-session context window), UsageWindowView
 ## Components
 
 ### Menu Bar Label
-**File**: `Sources/Clawdboard/ClawdboardApp.swift`
+**File**: `Sources/Upclaude/UpclaudeApp.swift`
 
 The menu bar icon adapts based on session state:
 
@@ -81,7 +81,7 @@ The menu bar icon adapts based on session state:
 ---
 
 ### StatusDot
-**File**: `Sources/ClawdboardLib/Views/Components.swift`
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
 
 Colored circle indicating session status.
 
@@ -95,7 +95,7 @@ Colors follow the Status Colors table. All states are static (no animations).
 ---
 
 ### StatusPill
-**File**: `Sources/ClawdboardLib/Views/PanelView.swift`
+**File**: `Sources/UpclaudeLib/Views/PanelView.swift`
 
 Header summary badges showing counts by status.
 
@@ -115,7 +115,7 @@ Only shown when count > 0 for that status.
 ---
 
 ### ContextBar
-**File**: `Sources/ClawdboardLib/Views/Components.swift`
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
 
 Horizontal progress bar showing context window usage.
 
@@ -131,7 +131,7 @@ Horizontal progress bar showing context window usage.
 ---
 
 ### SparklineView
-**File**: `Sources/ClawdboardLib/Views/Components.swift`
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
 
 Miniature line chart showing context usage over time per session.
 
@@ -151,7 +151,7 @@ Miniature line chart showing context usage over time per session.
 ---
 
 ### PRStatusIcon
-**File**: `Sources/ClawdboardLib/Views/Components.swift`
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
 
 Displays the pull request status for a session's branch using custom-drawn GitHub-style icons (SwiftUI Canvas). Falls back to a commit count badge when no PR exists but commits were made during the session. PR data fetched via `gh` CLI on the Swift side (`PRStatusProvider`); commit data comes from the hook script.
 
@@ -189,13 +189,13 @@ All commit badge states use solid border + tinted background (same style as PR b
 **Placement**: Trailing edge of collapsed session row, after sparkline. Always shown (dashed rectangle when no PR or commit data available).
 
 **Data sources**:
-- PR data: `PRStatusProvider` polls `gh pr list` with 30s per-session debounce. Requires `gh` CLI to be installed and authenticated. Cache persisted to `~/.clawdboard/pr-status-cache.json` for instant display on app launch.
+- PR data: `PRStatusProvider` polls `gh pr list` with 30s per-session debounce. Requires `gh` CLI to be installed and authenticated. Cache persisted to `~/.upclaude/pr-status-cache.json` for instant display on app launch.
 - Commit data: Hook script captures `start_sha` at session start and tracks `head_sha`, `commit_count`, `unpushed_count` on each event via local `git rev-list` / `git rev-parse` commands.
 
 ---
 
 ### UsageWindowView (Progress Bar)
-**File**: `Sources/ClawdboardLib/Views/Components.swift`
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
 
 Horizontal progress bar for account usage limits.
 
@@ -219,7 +219,7 @@ Two windows side by side in an HStack with 24pt spacing.
 ---
 
 ### AgentRow
-**File**: `Sources/ClawdboardLib/Views/AgentRow.swift`
+**File**: `Sources/UpclaudeLib/Views/AgentRow.swift`
 
 Single session row. Full row is the primary click target (Fitts's Law).
 
@@ -280,7 +280,7 @@ Single session row. Full row is the primary click target (Fitts's Law).
 ---
 
 ### DetailRow
-**File**: `Sources/ClawdboardLib/Views/Components.swift`
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
 
 Key-value pair in expanded detail grid.
 
@@ -294,7 +294,7 @@ Key-value pair in expanded detail grid.
 ---
 
 ### Section Headers (Collapsible)
-**File**: `Sources/ClawdboardLib/Views/SessionsTab.swift`
+**File**: `Sources/UpclaudeLib/Views/SessionsTab.swift`
 
 Group headers for sessions by project name. For GitHub repos, the org prefix is stripped (e.g., "acme/my-app" → "MY-APP"). Tapping the header toggles collapse/expand of the group.
 
@@ -312,11 +312,11 @@ Group headers for sessions by project name. For GitHub repos, the org prefix is 
 ---
 
 ### Panel Header
-**File**: `Sources/ClawdboardLib/Views/PanelView.swift`
+**File**: `Sources/UpclaudeLib/Views/PanelView.swift`
 
 | Element | Spec |
 |---------|------|
-| Title | "Clawdboard" in `.headline` |
+| Title | "Upclaude" in `.headline` |
 | Alignment | `.firstTextBaseline` |
 | Status pills | Right-aligned, 6pt spacing |
 | Padding | 12pt horizontal, 10pt top, 6pt bottom |
@@ -324,7 +324,7 @@ Group headers for sessions by project name. For GitHub repos, the org prefix is 
 ---
 
 ### Panel Footer
-**File**: `Sources/ClawdboardLib/Views/PanelView.swift`
+**File**: `Sources/UpclaudeLib/Views/PanelView.swift`
 
 | Element | Spec |
 |---------|------|
@@ -337,7 +337,7 @@ Group headers for sessions by project name. For GitHub repos, the org prefix is 
 ---
 
 ### Empty State
-**File**: `Sources/ClawdboardLib/Views/PanelView.swift`
+**File**: `Sources/UpclaudeLib/Views/PanelView.swift`
 
 Shown when no sessions exist.
 
@@ -397,7 +397,7 @@ Shown when no sessions exist.
 
 | Use | Font Spec | Notes |
 |-----|-----------|-------|
-| App title | `.headline` | "Clawdboard" in header |
+| App title | `.headline` | "Upclaude" in header |
 | Session title | `.body` weight `.medium` | AI-generated or placeholder |
 | Metadata | `.caption` | Dot-separated, `.secondary` |
 | Small labels | `.caption2` | Context %, pill text |
@@ -435,7 +435,7 @@ Shown when no sessions exist.
 ---
 
 ### DiffStatsLabel
-**File**: `Sources/ClawdboardLib/Views/AgentRow.swift`
+**File**: `Sources/UpclaudeLib/Views/AgentRow.swift`
 
 Inline colored diff stats (used in both metadata line and expanded details).
 
@@ -449,7 +449,7 @@ Inline colored diff stats (used in both metadata line and expanded details).
 ---
 
 ### DiffStatsProvider
-**File**: `Sources/ClawdboardLib/DiffStatsProvider.swift`
+**File**: `Sources/UpclaudeLib/DiffStatsProvider.swift`
 
 Reactive diff stats collector. Triggered by session changes (no timer/polling) with per-session debounce. Results kept in memory — no state file writes, no rebuild loops.
 
@@ -482,7 +482,7 @@ Within each status group, sessions are grouped alphabetically by GitHub repo slu
 
 ## Platform Behavior
 
-Clawdboard must respect standard macOS behaviors. Never hardcode values that the system provides dynamically.
+Upclaude must respect standard macOS behaviors. Never hardcode values that the system provides dynamically.
 
 ### Appearance Adaptation
 

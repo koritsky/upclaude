@@ -4,41 +4,41 @@
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:clawdboard}",
-            "name": "Debug Clawdboard",
-            "target": "Clawdboard",
+            "cwd": "${workspaceFolder:upclaude}",
+            "name": "Debug Upclaude",
+            "target": "Upclaude",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug Clawdboard"
+            "preLaunchTask": "swift: Build Debug Upclaude"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:clawdboard}",
-            "name": "Release Clawdboard",
-            "target": "Clawdboard",
+            "cwd": "${workspaceFolder:upclaude}",
+            "name": "Release Upclaude",
+            "target": "Upclaude",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release Clawdboard"
+            "preLaunchTask": "swift: Build Release Upclaude"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:clawdboard}",
-            "name": "Debug ClawdboardTests",
-            "target": "ClawdboardTests",
+            "cwd": "${workspaceFolder:upclaude}",
+            "name": "Debug UpclaudeTests",
+            "target": "UpclaudeTests",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug ClawdboardTests"
+            "preLaunchTask": "swift: Build Debug UpclaudeTests"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:clawdboard}",
-            "name": "Release ClawdboardTests",
-            "target": "ClawdboardTests",
+            "cwd": "${workspaceFolder:upclaude}",
+            "name": "Release UpclaudeTests",
+            "target": "UpclaudeTests",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release ClawdboardTests"
+            "preLaunchTask": "swift: Build Release UpclaudeTests"
         }
     ]
 }

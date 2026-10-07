@@ -1,7 +1,7 @@
 [project]
-name = "clawdboard-hooks"
+name = "upclaude-hooks"
 version = "0.1.0"
-description = "Python hooks for Clawdboard — Claude Code session monitor"
+description = "Python hooks for Upclaude — Claude Code session monitor"
 requires-python = ">=3.12"
 dependencies = []
 
@@ -23,4 +23,4 @@ ignore = ["E501"]  # Line length handled by ruff format
 
 [tool.pytest.ini_options]
 testpaths = ["Tests/python"]
-pythonpath = ["Sources/ClawdboardLib/Resources"]
+pythonpath = ["Sources/UpclaudeLib/Resources"]

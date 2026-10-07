@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Clawdboard hook script — called by Claude Code hooks to track session state.
+"""Upclaude hook script — called by Claude Code hooks to track session state.
 
 Reads hook input from stdin, extracts session data from JSONL transcript,
-and writes/updates a state file in ~/.clawdboard/sessions/.
+and writes/updates a state file in ~/.upclaude/sessions/.
 
 State model: single {session_id}.json per session with an `active_tools` dict
 tracking each tool call by tool_use_id. Status is derived from active_tools.
@@ -27,12 +27,12 @@ from typing import Any
 # JSON dict type alias
 JsonDict = dict[str, Any]
 
-SESSIONS_DIR = Path.home() / ".clawdboard" / "sessions"
-LOG_FILE = Path.home() / ".clawdboard" / "hook-debug.log"
-WATCHER_PID_FILE = Path.home() / ".clawdboard" / "watcher.pid"
+SESSIONS_DIR = Path.home() / ".upclaude" / "sessions"
+LOG_FILE = Path.home() / ".upclaude" / "hook-debug.log"
+WATCHER_PID_FILE = Path.home() / ".upclaude" / "watcher.pid"
 WATCHER_POLL_INTERVAL = 1.5
 WATCHER_IDLE_TIMEOUT = 60
-MODEL_CACHE_FILE = Path.home() / ".clawdboard" / "model-context-windows.json"
+MODEL_CACHE_FILE = Path.home() / ".upclaude" / "model-context-windows.json"
 LITELLM_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
 
 TITLE_FALLBACK = "untitled-session"
@@ -882,8 +882,8 @@ _TITLE_SCRIPT = """\
 import json, os, re, signal, subprocess
 from pathlib import Path
 
-state_file = Path(os.environ["_CLAWDBOARD_STATE_FILE"])
-prompts = json.loads(os.environ["_CLAWDBOARD_PROMPTS"])
+state_file = Path(os.environ["_UPCLAUDE_STATE_FILE"])
+prompts = json.loads(os.environ["_UPCLAUDE_PROMPTS"])
 
 messages = "\\n".join(f"Message {i+1}: {p}" for i, p in enumerate(prompts))
 claude_prompt = (
@@ -981,9 +981,9 @@ def generate_title_async(state_file: Path, user_prompts: list[str]) -> None:
     terminal and can set the tab title via /dev/tty immediately.
     """
     env = os.environ.copy()
-    env["_CLAWDBOARD_TITLE_GEN"] = "1"
-    env["_CLAWDBOARD_STATE_FILE"] = str(state_file)
-    env["_CLAWDBOARD_PROMPTS"] = json.dumps(user_prompts)
+    env["_UPCLAUDE_TITLE_GEN"] = "1"
+    env["_UPCLAUDE_STATE_FILE"] = str(state_file)
+    env["_UPCLAUDE_PROMPTS"] = json.dumps(user_prompts)
     subprocess.Popen(
         [sys.executable, "-c", _TITLE_SCRIPT],
         stdin=subprocess.DEVNULL,
@@ -1412,7 +1412,7 @@ def main() -> None:
     tool_use_id: str = hook_input.get("tool_use_id", "")
     claude_pid = os.getppid()
 
-    if not session_id or os.environ.get("_CLAWDBOARD_TITLE_GEN"):
+    if not session_id or os.environ.get("_UPCLAUDE_TITLE_GEN"):
         print('{"suppressOutput": true}')
         return
 

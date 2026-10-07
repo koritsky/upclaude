@@ -90,7 +90,7 @@ public struct PanelView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Clawdboard")
+            Text("Upclaude")
                 .font(.headline)
 
             Spacer()
@@ -129,7 +129,7 @@ public struct PanelView: View {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                 menuBarPanel?.orderOut(nil)
                                 for window in NSApp.windows
-                                where window.title == "Clawdboard" && window.level == .floating {
+                                where window.title == "Upclaude" && window.level == .floating {
                                     window.makeKeyAndOrderFront(nil)
                                 }
                                 NSApp.activate(ignoringOtherApps: true)
@@ -168,7 +168,7 @@ public struct PanelView: View {
                     try? HookManager.shared.install()
                 }
                 Divider()
-                Button("Quit Clawdboard") {
+                Button("Quit Upclaude") {
                     NSApplication.shared.terminate(nil)
                 }
             } label: {

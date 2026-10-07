@@ -49,7 +49,7 @@ public struct DetachedPanelView: View {
                 dismissWindow(id: "main")
             }
             Divider()
-            Button("Quit Clawdboard") {
+            Button("Quit Upclaude") {
                 NSApplication.shared.terminate(nil)
             }
         } label: {

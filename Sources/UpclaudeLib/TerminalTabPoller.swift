@@ -21,7 +21,7 @@ public class TerminalTabPoller {
 
     // MARK: - Serial queue protecting all mutable state
 
-    private let queue = DispatchQueue(label: "clawdboard.terminal-tab-poller", qos: .utility)
+    private let queue = DispatchQueue(label: "upclaude.terminal-tab-poller", qos: .utility)
 
     /// Tracked tabs: sessionId → (element, lastKnownValue)
     private var tracked: [String: (element: AXUIElement, lastValue: String)] = [:]

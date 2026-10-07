@@ -4,7 +4,7 @@
 
 Single `{session_id}.json` file per session. All state lives in one file, protected by a per-session file lock (`fcntl.flock`). Two writers:
 
-1. **Hook script** (`clawdboard-hook.py`) — called synchronously by Claude Code on each hook event
+1. **Hook script** (`upclaude-hook.py`) — called synchronously by Claude Code on each hook event
 2. **Watcher daemon** — background Python process polling every 1.5s, covers blind spots
 
 Swift reads the JSON and applies only lifecycle rules (ghost filtering, abandoned detection). All status derivation happens in Python.
@@ -156,7 +156,7 @@ Atomic writes via temp file + rename: `state_file.with_suffix(f".tmp.{os.getpid(
 
 - **Started by**: `ensure_watcher()`, called on every hook invocation
 - **Guarded by**: Non-blocking lock (`LOCK_NB`) on `watcher.pid.lock` — fails fast if another hook is already checking
-- **PID file**: `~/.clawdboard/watcher.pid` — contains PID + script mtime version
+- **PID file**: `~/.upclaude/watcher.pid` — contains PID + script mtime version
 - **Version check**: If script mtime changed (reinstall), old watcher is killed and replaced
 - **Idle timeout**: Exits after 60s with no active sessions
 - **Poll interval**: 1.5s
@@ -170,7 +170,7 @@ Swift does NOT derive status — it trusts the `status` field from Python. It on
 
 ## Logging
 
-All logs go to `~/.clawdboard/hook-debug.log`.
+All logs go to `~/.upclaude/hook-debug.log`.
 
 **Hook events** — one line with pre-state context (truncated session/agent IDs):
 ```
@@ -195,9 +195,9 @@ To debug status flickering: look for unexpected `status=waiting` in the `→` li
 
 | File | Role |
 |---|---|
-| `clawdboard-hook.py` | Hook handler + watcher daemon. All status logic. |
+| `upclaude-hook.py` | Hook handler + watcher daemon. All status logic. |
 | `SessionProcessor.swift` | Ghost filtering + abandoned detection. Trusts Python's `status` field. |
-| `SessionStateWatcher.swift` | DispatchSource watching `~/.clawdboard/sessions/` for file changes. Reads and decodes JSON. No polling timer — watcher daemon handles liveness. |
+| `SessionStateWatcher.swift` | DispatchSource watching `~/.upclaude/sessions/` for file changes. Reads and decodes JSON. No polling timer — watcher daemon handles liveness. |
 | `Models.swift` | `AgentSession`, `ActiveTool`, `AgentStatus` enum (no `pendingWaiting`). |
 | `HookManager.swift` | Registers hooks for all events in Claude Code settings. |
 | `AppState.swift` | Delegates to `SessionProcessor.process()`. Status accessed directly via `.status` (no `displayStatus` indirection). |

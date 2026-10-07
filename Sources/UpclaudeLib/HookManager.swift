@@ -1,20 +1,19 @@
 import Foundation
 
-/// Manages installation and updates of Clawdboard hooks in ~/.claude/settings.json.
+/// Manages installation and updates of Upclaude hooks in ~/.claude/settings.json.
 /// Hooks are the primary mechanism for session discovery and state tracking.
 public class HookManager {
     public static let shared = HookManager()
 
-    private let clawdboardDir: URL
+    private let upclaudeDir: URL
     private let hooksDir: URL
     private let sessionsDir: URL
     private let claudeSettingsPath: URL
 
-    public init() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        clawdboardDir = home.appendingPathComponent(".clawdboard")
-        hooksDir = clawdboardDir.appendingPathComponent("hooks")
-        sessionsDir = clawdboardDir.appendingPathComponent("sessions")
+    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+        upclaudeDir = home.appendingPathComponent(".upclaude")
+        hooksDir = upclaudeDir.appendingPathComponent("hooks")
+        sessionsDir = upclaudeDir.appendingPathComponent("sessions")
         claudeSettingsPath = home.appendingPathComponent(".claude/settings.json")
     }
 
@@ -30,20 +29,12 @@ public class HookManager {
         "SessionEnd", "SubagentStart", "SubagentStop",
     ]
 
-    /// Check if all expected hooks are installed (via plugin or direct settings)
+    /// Check if all expected hooks are installed in settings
     public var isInstalled: Bool {
         guard let data = try? Data(contentsOf: claudeSettingsPath),
             let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return false }
 
-        // Check if clawdboard is enabled via the apoco-plugins marketplace
-        if let plugins = settings["enabledPlugins"] as? [String: Any],
-            plugins["clawdboard@apoco-plugins"] as? Bool == true
-        {
-            return true
-        }
-
-        // Fall back to checking for directly-registered hooks
         guard let hooks = settings["hooks"] as? [String: Any] else { return false }
 
         return Self.hookEvents.allSatisfy { event in
@@ -52,7 +43,7 @@ public class HookManager {
                 guard let hooksList = entry["hooks"] as? [[String: Any]] else { return false }
                 return hooksList.contains { hook in
                     guard let command = hook["command"] as? String else { return false }
-                    return command.contains("clawdboard")
+                    return command.contains("upclaude")
                 }
             }
         }
@@ -65,18 +56,18 @@ public class HookManager {
         try fm.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
     }
 
-    /// Install the hook script from the app bundle to ~/.clawdboard/hooks/
+    /// Install the hook script from the app bundle to ~/.upclaude/hooks/
     public func installHookScript() throws {
         let fm = FileManager.default
         try ensureDirectories()
 
-        let hookScriptContent = try Self.scriptSource("clawdboard-hook.py")
-        let destPath = hooksDir.appendingPathComponent("clawdboard-hook.py")
+        let hookScriptContent = try Self.scriptSource("upclaude-hook.py")
+        let destPath = hooksDir.appendingPathComponent("upclaude-hook.py")
         try hookScriptContent.write(to: destPath, atomically: true, encoding: .utf8)
         try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath.path)
     }
 
-    /// Merge Clawdboard hooks into ~/.claude/settings.json, preserving existing hooks.
+    /// Merge Upclaude hooks into ~/.claude/settings.json, preserving existing hooks.
     public func installHooksInSettings() throws {
         let fm = FileManager.default
         var settings: [String: Any] = [:]
@@ -89,7 +80,7 @@ public class HookManager {
         }
 
         var hooks = settings["hooks"] as? [String: Any] ?? [:]
-        let hookCommand = "python3 \(hooksDir.path)/clawdboard-hook.py"
+        let hookCommand = "python3 \(hooksDir.path)/upclaude-hook.py"
 
         let hookEntry: [String: Any] = [
             "type": "command",
@@ -97,18 +88,18 @@ public class HookManager {
             "timeout": 10,
         ]
 
-        let removeClawdboard: ([[String: Any]]) -> [[String: Any]] = { entries in
+        let removeUpclaude: ([[String: Any]]) -> [[String: Any]] = { entries in
             entries.filter { entry in
                 guard let hooksList = entry["hooks"] as? [[String: Any]] else { return true }
                 return !hooksList.contains { hook in
-                    (hook["command"] as? String)?.contains("clawdboard") == true
+                    (hook["command"] as? String)?.contains("upclaude") == true
                 }
             }
         }
 
         // Register the same hook for all standard events
         for event in Self.hookEvents {
-            var eventHooks = removeClawdboard(hooks[event] as? [[String: Any]] ?? [])
+            var eventHooks = removeUpclaude(hooks[event] as? [[String: Any]] ?? [])
             eventHooks.append(["matcher": "*", "hooks": [hookEntry]])
             hooks[event] = eventHooks
         }
@@ -126,7 +117,7 @@ public class HookManager {
         try installHooksInSettings()
     }
 
-    /// Remove Clawdboard hooks from settings.json and clean up local files.
+    /// Remove Upclaude hooks from settings.json and clean up local files.
     public func uninstall() throws {
         let fm = FileManager.default
 
@@ -143,7 +134,7 @@ public class HookManager {
                             return false
                         }
                         return hooksList.contains { hook in
-                            (hook["command"] as? String)?.contains("clawdboard") == true
+                            (hook["command"] as? String)?.contains("upclaude") == true
                         }
                     }
                     if entries.isEmpty {
@@ -161,14 +152,14 @@ public class HookManager {
             }
         }
 
-        // Clean up ~/.clawdboard/sessions/ and hooks/
+        // Clean up ~/.upclaude/sessions/ and hooks/
         try? fm.removeItem(at: sessionsDir)
         try? fm.removeItem(at: hooksDir)
     }
 
     /// The hook script content for remote installation
     public static func remoteHookScript() throws -> String {
-        try scriptSource("clawdboard-hook.py")
+        try scriptSource("upclaude-hook.py")
     }
 
     /// Load a Python script by name.
@@ -185,14 +176,14 @@ public class HookManager {
             return content
         }
 
-        // 2. Repo layout relative to executable (`swift run` → .build/debug/Clawdboard)
+        // 2. Repo layout relative to executable (`swift run` → .build/debug/Upclaude)
         let executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
         let repoPath =
             executableURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("Sources/ClawdboardLib/Resources/\(filename)")
+            .appendingPathComponent("Sources/UpclaudeLib/Resources/\(filename)")
 
         if let content = try? String(contentsOf: repoPath, encoding: .utf8) {
             return content
@@ -200,7 +191,7 @@ public class HookManager {
 
         // 3. CWD fallback
         let cwdPath = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("Sources/ClawdboardLib/Resources/\(filename)")
+            .appendingPathComponent("Sources/UpclaudeLib/Resources/\(filename)")
         if let content = try? String(contentsOf: cwdPath, encoding: .utf8) {
             return content
         }
