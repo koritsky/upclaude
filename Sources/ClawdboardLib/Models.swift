@@ -479,9 +479,11 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         return String(format: "%.0f%%", pct)
     }
 
-    /// Short model name for display (e.g., "opus" from "claude-opus-4-6")
+    /// Short model name for display (e.g., "Opus" from "claude-opus-5-5")
     public var shortModelName: String {
         guard let model = model else { return "—" }
+        if model.contains("fable") { return "Fable" }
+        if model.contains("mythos") { return "Mythos" }
         if model.contains("opus") { return "Opus" }
         if model.contains("sonnet") { return "Sonnet" }
         if model.contains("haiku") { return "Haiku" }

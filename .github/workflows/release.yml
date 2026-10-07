@@ -13,7 +13,7 @@ jobs:
     name: Build & Release
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: swift-actions/setup-swift@v2
         with:
@@ -55,7 +55,7 @@ jobs:
         run: echo "sha256=$(shasum -a 256 Clawdboard-${{ github.ref_name }}.zip | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: Clawdboard-${{ github.ref_name }}.zip

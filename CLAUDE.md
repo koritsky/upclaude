@@ -26,7 +26,7 @@ mise run lint     # Check formatting + lint
 - **Swift 5 language mode** in Swift 6 toolchain (avoids strict concurrency fights for a PoC).
 - **Hooks-first session discovery**: Claude hooks write state files to `~/.clawdboard/sessions/`. The Swift app just reads JSON — all JSONL parsing, cost calculation, and token counting happens in the hook script (`Sources/ClawdboardLib/Resources/clawdboard-hook.py`).
 - **Single `@Observable` AppState** owned by the App struct, distributed via `.environment()`.
-- **3s debounce** on `Stop` hook (pending_waiting -> waiting). **30s staleness** heuristic for interrupted sessions.
+- **Status is derived in the hook** from `active_tools` / `agent_working`; `Stop` does a full reset to `waiting` (no debounce). **Ghost filtering** in `SessionProcessor` hides sessions that never produced output (30s if never updated, 5min idle).
 
 ## Design
 
