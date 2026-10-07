@@ -817,12 +817,7 @@ def _ensure_state(
 # --- Transcript reading ---
 
 
-TRANSCRIPT_KEYS = (
-    "model",
-    "git_branch",
-    "slug",
-    "context_pct",
-)
+TRANSCRIPT_KEYS = ("model", "git_branch", "slug", "context_pct", "effort")
 
 
 def read_transcript_data(transcript_path: str) -> JsonDict:
@@ -861,6 +856,8 @@ def read_transcript_data(transcript_path: str) -> JsonDict:
         if latest_usage_entry:
             msg = latest_usage_entry["message"]
             result["model"] = msg.get("model", "")
+            # Reasoning effort the turn ran at ("low" … "max"), recorded beside the message.
+            result["effort"] = latest_usage_entry.get("effort") or ""
             usage = msg["usage"]
             input_tok = usage.get("input_tokens", 0) or 0
             output_tok = usage.get("output_tokens", 0) or 0
@@ -1201,6 +1198,63 @@ def _update_session_metadata(
 # --- Event handlers ---
 
 
+# What a session keeps when Claude Code starts it again: resuming it, or compacting its
+# context, fires SessionStart a second time for the same session id.
+DURABLE_KEYS = (
+    "started_at",
+    "title",
+    "first_prompt",
+    "user_prompts",
+    "user_message_count",
+    "last_prompt",
+    "last_reply",
+    "turn_started_at",
+    "turn_ended_at",
+    "context_snapshots",
+    "approval_timestamps",
+    "start_sha",
+    "commit_count",
+)
+# Sessions that ended, kept so that resuming one restores the above.
+ENDED_DIR = SESSIONS_DIR.parent / "ended"
+ENDED_MAX_AGE_SECONDS = 30 * 24 * 3600
+
+
+def archive_ended_session(state_file: Path, session_id: str) -> None:
+    """Keep an ended session's durable fields, and drop archives nobody came back for."""
+    state = read_state(state_file)
+    if state is None:
+        return
+    durable = {key: state[key] for key in DURABLE_KEYS if state.get(key) is not None}
+    try:
+        ENDED_DIR.mkdir(parents=True, exist_ok=True)
+        (ENDED_DIR / f"{session_id}.json").write_text(json.dumps(durable))
+        cutoff = time.time() - ENDED_MAX_AGE_SECONDS
+        for old in ENDED_DIR.glob("*.json"):
+            if old.stat().st_mtime < cutoff:
+                old.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def restore_durable_fields(state: JsonDict, state_file: Path, session_id: str) -> None:
+    """Carry durable fields into a freshly built state: from the live file when the session
+    restarted in place, else from the archive left when it ended."""
+    ended_file = ENDED_DIR / f"{session_id}.json"
+    previous = read_state(state_file)
+    if previous is None:
+        try:
+            previous = json.loads(ended_file.read_text())
+        except (OSError, ValueError):
+            previous = None
+    ended_file.unlink(missing_ok=True)
+    if not isinstance(previous, dict):
+        return
+    for key in DURABLE_KEYS:
+        if previous.get(key) is not None:
+            state[key] = previous[key]
+
+
 def handle_session_start(
     state_file: Path,
     transcript_path: str,
@@ -1237,6 +1291,7 @@ def handle_session_start(
         "iterm2_session_id": iterm2_session_id_from_env(),
         "zellij": zellij_pane_from_env(),
     }
+    restore_durable_fields(state, state_file, session_id)
     if data.get("context_pct") is not None:
         append_context_snapshot(state, data["context_pct"], now)
 
@@ -1398,6 +1453,7 @@ def handle_stop(
         )
         if reply:
             state["last_reply"] = reply
+        state["turn_ended_at"] = now
         state["status"] = derive_status(state)
         update_terminal_tab_title(state)
         write_state(state_file, state)
@@ -1642,6 +1698,7 @@ def main() -> None:
         )
     elif hook_event == "SessionEnd":
         set_terminal_title("")
+        archive_ended_session(state_file, session_id)
         state_file.unlink(missing_ok=True)
         lock_file = SESSIONS_DIR / f"{session_id}.lock"
         lock_file.unlink(missing_ok=True)

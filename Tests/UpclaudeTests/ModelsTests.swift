@@ -224,6 +224,87 @@ struct ModelsTests {
         #expect(session.contextSnapshots == nil)
     }
 
+    // MARK: - Session display
+
+    @Test("prettyModelName reads the way people say it")
+    func prettyModelName() {
+        func name(_ model: String?) -> String {
+            AgentSession(sessionId: "1", cwd: "/a", projectName: "a", model: model, isHookTracked: true)
+                .prettyModelName
+        }
+        #expect(name("claude-opus-5-5") == "Opus 5.5")
+        #expect(name("claude-haiku-4-5-20251001") == "Haiku 4.5")
+        #expect(name("claude-fable-5-1") == "Fable 5.1")
+        #expect(name("claude-sonnet-5") == "Sonnet 5")
+        #expect(name("4-turbo") == "4-turbo")
+        #expect(name(nil) == "—")
+    }
+
+    @Test("modelAndEffort appends the effort when it is known")
+    func modelAndEffort() {
+        var session = AgentSession(
+            sessionId: "1", cwd: "/a", projectName: "a", model: "claude-opus-5-5", isHookTracked: true)
+        #expect(session.modelAndEffort == "Opus 5.5")
+        session.effort = "medium"
+        #expect(session.modelAndEffort == "Opus 5.5 · medium")
+    }
+
+    @Test("status duration counts from when the session entered its status")
+    func statusDuration() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        var session = AgentSession(
+            sessionId: "1", cwd: "/a", projectName: "a", status: .waiting, isHookTracked: true)
+        #expect(session.statusDurationText(now: now) == nil)
+
+        session.turnEndedAt = now.addingTimeInterval(-12 * 60)
+        #expect(session.statusDurationText(now: now) == "12m")
+
+        session.status = .working
+        session.turnStartedAt = now.addingTimeInterval(-20)
+        #expect(session.statusDurationText(now: now) == "now")
+
+        session.status = .needsApproval
+        session.activeTools = [
+            "a": ActiveTool(status: .needsApproval, addedAt: now.addingTimeInterval(-65 * 60)),
+            "b": ActiveTool(status: .working, addedAt: now.addingTimeInterval(-9000)),
+        ]
+        #expect(session.statusDurationText(now: now) == "1h 5m")
+
+        #expect(AgentSession.compactDuration(51 * 3600) == "2d 3h")
+    }
+
+    @Test("promptSummary quotes the latest prompt and shortSessionId keeps eight characters")
+    func promptSummaryAndShortId() {
+        var session = AgentSession(
+            sessionId: "210f971e-aff4-461b", cwd: "/a", projectName: "a", isHookTracked: true)
+        #expect(session.promptSummary == nil)
+        session.firstPrompt = "first"
+        #expect(session.promptSummary == "“first”")
+        session.lastPrompt = "latest"
+        #expect(session.promptSummary == "“latest”")
+        #expect(session.shortSessionId == "210f971e")
+    }
+
+    @Test("row widgets are shown only when they have something to show")
+    func rowWidgets() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let recent = [
+            ContextSnapshot(t: now.addingTimeInterval(-120), pct: 10),
+            ContextSnapshot(t: now.addingTimeInterval(-60), pct: 12),
+        ]
+        let stale = [
+            ContextSnapshot(t: now.addingTimeInterval(-9000), pct: 10),
+            ContextSnapshot(t: now.addingTimeInterval(-8000), pct: 12),
+        ]
+        #expect(SparklineView.hasActivity(recent, now: now))
+        #expect(!SparklineView.hasActivity(stale, now: now))
+        #expect(!SparklineView.hasActivity([], now: now))
+
+        #expect(!PRStatusIcon.hasContent(prInfo: nil, commitCount: nil))
+        #expect(!PRStatusIcon.hasContent(prInfo: nil, commitCount: 0))
+        #expect(PRStatusIcon.hasContent(prInfo: nil, commitCount: 2))
+    }
+
     // MARK: - ClaudeSpinner
 
     @Test("ClaudeSpinner cycle goes out and back, resting on the smallest and fullest glyphs")
@@ -233,6 +314,21 @@ struct ModelsTests {
         #expect(cycle.frames.count == 10)
         #expect(
             cycle.durations == [0.36, 0.12, 0.12, 0.12, 0.12, 0.36, 0.12, 0.12, 0.12, 0.12])
+    }
+
+    @Test("ClaudeSpinner glyph at a moment follows the same schedule as the cycle")
+    func claudeSpinnerGlyphAtTime() {
+        // Cycle: · held 0.36s, then ✢ ✳ ✶ ✻ at 0.12s each, ✽ held 0.36s, then back.
+        func glyph(_ offset: TimeInterval) -> String {
+            ClaudeSpinner.glyph(at: Date(timeIntervalSinceReferenceDate: 1.68 * 1000 + offset))
+        }
+        #expect(glyph(0.01) == "·")
+        #expect(glyph(0.35) == "·")
+        #expect(glyph(0.37) == "✢")
+        #expect(glyph(0.85) == "✽")
+        #expect(glyph(1.19) == "✽")
+        #expect(glyph(1.21) == "✻")
+        #expect(glyph(1.67) == "✢")
     }
 
     @Test("ClaudeSpinner glyphs are drawn in a fixed square at the backing scale")

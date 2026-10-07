@@ -36,6 +36,22 @@ public enum ClaudeSpinner {
         return (frames, durations)
     }
 
+    /// The spinner glyph showing at a moment in time, on the same schedule as `cycle`.
+    /// For views that redraw themselves, such as the panel's rows.
+    public static func glyph(at date: Date) -> String {
+        let sequence = glyphs + glyphs.dropFirst().dropLast().reversed()
+        let durations = sequence.indices.map { index in
+            index == 0 || index == glyphs.count - 1 ? endHold : frameInterval
+        }
+        var offset = date.timeIntervalSinceReferenceDate
+            .truncatingRemainder(dividingBy: durations.reduce(0, +))
+        for (glyph, duration) in zip(sequence, durations) {
+            if offset < duration { return glyph }
+            offset -= duration
+        }
+        return sequence[0]
+    }
+
     /// One glyph centered in a `side` square, at the given backing scale.
     public static func glyphImage(_ glyph: String, color: NSColor, scale: CGFloat) -> CGImage? {
         let pixels = Int((side * scale).rounded())

@@ -20,9 +20,9 @@ All colors are semantic SwiftUI values — they adapt automatically to light/dar
 
 | Status | Color | Used in |
 |--------|-------|---------|
-| Working / Pending | `.blue` | StatusDot, StatusPill, subagent dots. The menu bar uses an orange spinner instead, see Menu Bar Label |
-| Approve | `.red` | StatusDot, StatusPill, menu bar dot |
-| Your turn (waiting) | `.green` | StatusDot, StatusPill. The menu bar uses a grey asterisk instead, see Menu Bar Label |
+| Working / Pending | Claude orange `#D97757` | StatusMark spinner (rows, header counts, menu bar). Subagent dots stay `.blue` |
+| Approve | `.red` | StatusMark dot (rows, header counts), menu bar dot |
+| Your turn (waiting) | Neutral grey (`.secondary`; menu bar foreground at 60%) | StatusMark asterisk (rows, header counts, menu bar) |
 | Inactive (abandoned) | `.gray` at 40% opacity | StatusDot |
 | Unknown | `.gray` | StatusDot |
 
@@ -30,15 +30,15 @@ All colors are semantic SwiftUI values — they adapt automatically to light/dar
 
 ### Usage Gauge Colors
 
-All usage indicators (context bar, usage progress bar) share the same color scale and thresholds:
+All usage indicators (context bar, activity chart, usage progress bar) share the same color scale and thresholds. The middle band is yellow, not orange: orange is reserved for Claude's "working" spinner.
 
 | Range | Color | Meaning |
 |-------|-------|---------|
 | 0–69% | `.secondary` | Healthy |
-| 70–89% | `.orange` | Elevated — worth noting |
+| 70–89% | `.yellow` | Elevated — worth noting |
 | 90%+ | `.red` | Critical — action likely needed |
 
-Applied to: ContextBar (horizontal, per-session context window), UsageWindowView (horizontal, account usage limits).
+Applied to: ContextBar (horizontal, per-session context window), SparklineView (stroke, by the session's latest context value), UsageWindowView (horizontal, account usage limits).
 
 ### Text Hierarchy
 
@@ -89,31 +89,44 @@ The asterisks mirror Claude Code itself: its spinner while it works, a grey aste
 
 ---
 
+### StatusMark
+**File**: `Sources/UpclaudeLib/Views/Components.swift`
+
+A session's status, drawn the same way in the panel as in the menu bar.
+
+| Status | Mark |
+|--------|------|
+| Working | Claude Code's spinner in Claude orange, stepping through `· ✢ ✳ ✶ ✻ ✽` and back on the menu bar's schedule. A static `✻` with Reduce Motion on |
+| Your turn | Grey `✻` (`.secondary`) |
+| Needs approval | Red `StatusDot` |
+| Unknown / inactive | Grey `StatusDot` |
+
+| Property | Value |
+|----------|-------|
+| Frame | 14×14pt |
+| Asterisk font | 13pt bold system font |
+
 ### StatusDot
 **File**: `Sources/UpclaudeLib/Views/Components.swift`
 
-Colored circle indicating session status.
+Colored circle, used by StatusMark for the states that are not asterisks.
 
 | Property | Value |
 |----------|-------|
 | Size | 8×8pt |
 | Shape | Filled `Circle()` |
 
-Colors follow the Status Colors table. All states are static (no animations).
-
 ---
 
-### StatusPill
+### StatusCount
 **File**: `Sources/UpclaudeLib/Views/PanelView.swift`
 
-Header summary badges showing counts by status.
+Header summary: how many sessions are in a state, as that state's StatusMark followed by the number. Hidden when the count is zero. The state's name is in the tooltip, not on screen.
 
 | Property | Value |
 |----------|-------|
-| Shape | `Capsule()` |
-| Background | Status color at 12% opacity |
-| Dot size | 6×6pt filled circle |
-| Dot-to-text spacing | 3pt |
+| Count font | `.caption.monospacedDigit().weight(.medium)`, `.secondary` |
+| Mark-to-count spacing | 3pt || Dot-to-text spacing | 3pt |
 | Pill-to-pill spacing | 6pt |
 | Padding | 6pt horizontal, 2pt vertical |
 | Text font | `.caption2` |
@@ -146,7 +159,7 @@ Miniature line chart showing context usage over time per session.
 
 | Property | Value |
 |----------|-------|
-| Size | 130 x 24pt |
+| Size | 80 x 24pt |
 | Stroke width | 1pt |
 | Fill opacity | 15% under line |
 | Min data points | 2 snapshots to render |
@@ -221,7 +234,7 @@ Horizontal progress bar for account usage limits.
 **Layout** (VStack, 3pt spacing):
 - Header row: Percentage in `.caption.monospacedDigit().weight(.semibold)`, bar color | Spacer | Window label ("5h" / "7d") in `.caption.weight(.semibold)`, `.secondary`
 - Progress bar with estimated marker overlay
-- Footer row: Estimated usage (`est N%`) in `.caption2.monospacedDigit()`, `.secondary` | Spacer | Reset time in `.caption2.monospacedDigit()`, `.tertiary`
+- Footer row: Projection (`on pace for N%`) in `.caption2.monospacedDigit()` | Spacer | Reset time in `.caption2.monospacedDigit()`, `.tertiary`. The projection is where usage ends up if the current rate holds: `.secondary` up to 100%, `.yellow` above 100%, `.red` from 150%. Its tooltip says so in a sentence
 
 Two windows side by side in an HStack with 24pt spacing.
 
@@ -247,11 +260,13 @@ Single session row. Full row is the primary click target (Fitts's Law).
 - **Right-click context menu** = Focus in iTerm2, Focus in VS Code/Cursor, Copy Session ID, Delete Session.
 - **Hover** = background brightens (0.5 → 0.8 opacity) + pointing hand cursor when a focus action is available.
 
-**Layout**: `StatusDot` | Title + metadata (VStack) | Spacer | Sparkline + PRStatusIcon | Disclosure chevron
+**Layout**: `StatusMark` | Title + status line (VStack) | Spacer | Sparkline + PRStatusIcon, each only when it has something to show | Disclosure chevron
 
 **Title**: `.system(.body, weight: .medium)`. Single line, truncated. Shows AI-generated kebab-case slug title (e.g. `api-refactor`, `auth-module`, `docs-update`) when available, otherwise a placeholder slug like `new-session` (stable per session ID).
 
-**Metadata line**: `.caption`, `.secondary`, dot-separated. Order: remote host icon + name, status label (first), model, branch, idle time, subagent count. All items use `.secondary` — the StatusDot already communicates state via color.
+**Status line**: `.caption`, `.secondary`, dot-separated, one line. Order: remote host icon + name, status label, how long the session has been in that status (`now`, `12m`, `1h 5m`, `2d 3h`; recounted every 30s), the most recent prompt in quotes. The prompt truncates first. The branch is in the expanded details, not here.
+
+**Widgets**: the Sparkline is shown only with at least two context snapshots in its window, and the PRStatusIcon only when there is a pull request or session commits; otherwise they would be an empty baseline and an empty dashed box. With neither PR nor commits, uncommitted changes show as a bare 6pt `.blue` dot.
 
 **Branch** (inline in metadata):
 - Plain text (no icon — PR status is shown via trailing PRStatusIcon)
@@ -281,10 +296,12 @@ Single session row. Full row is the primary click target (Fitts's Law).
 **Expanded details** (below main row):
 - Divider with 2pt vertical padding
 - Context bar row: label (60pt) + bar + percentage
-- DetailRow entries: Host, Model, Branch, Changes (+N −N colored), Commits (count + push status), Session, Uptime, Path
+- Prompt (most recent, up to 2 lines) and Reply (first line of Claude's last message, up to 3 lines), in the regular `.caption` font
+- DetailRow entries: Host, Model (as spoken, followed by the effort the last turn ran at when known, e.g. "Opus 5.5 · medium"), Branch, Changes (+N −N colored), Commits (count + push status), Session (first 8 characters, with a `doc.on.doc` button copying the full id), Uptime (since the session first started; kept across restarts and resumes), Path
+- The title is not repeated here
 - Subagents section: "Agents" label (60pt, trailing-aligned) + green 5×5pt dots, agent type, truncated ID — aligned with DetailRow labels
 - "Restart session for full tracking" warning in `.caption2`, `.orange` (if not hook-tracked)
-- Delete button: `trash` icon in `.caption`, `.tertiary`, 28×28pt hit target, right-aligned — shown for deletable sessions (hidden in collapsed row to prevent accidental clicks)
+- Actions row: "Focus in iTerm2" / "Focus in <IDE>" (`arrow.up.forward.app`, `.borderless`, aligned with the values) on the left when the session can be focused; delete button (`trash` icon in `.caption`, `.tertiary`, 28×28pt hit target) on the right — hidden in the collapsed row to prevent accidental clicks
 
 ---
 
@@ -297,7 +314,7 @@ Key-value pair in expanded detail grid.
 |----------|-------|
 | Label width | 60pt, trailing-aligned |
 | Label font | `.caption`, `.secondary` |
-| Value font | `.caption.monospaced()` |
+| Value font | `.caption.monospaced()`, one line, middle-truncated. Prose values (Prompt, Reply) use `.caption`, wrap up to their line limit, and truncate at the tail |
 | Truncation | Single line, middle truncation |
 
 ---
@@ -327,7 +344,7 @@ Group headers for sessions by project name. For GitHub repos, the org prefix is 
 |---------|------|
 | Title | "Upclaude" in `.headline` |
 | Alignment | `.firstTextBaseline` |
-| Status pills | Right-aligned, 6pt spacing |
+| Status counts | `StatusCount` per state (approve, your turn, working), right-aligned, 10pt spacing |
 | Padding | 12pt horizontal, 10pt top, 6pt bottom |
 
 ---
@@ -338,7 +355,7 @@ Group headers for sessions by project name. For GitHub repos, the org prefix is 
 | Element | Spec |
 |---------|------|
 | Session count | `.caption`, `.secondary` |
-| Detach toggle | `.checkbox`, `.controlSize(.small)` |
+| Float button | `pin` / `pin.fill` icon, `.caption`, `.secondary` — opens or closes the floating window; tooltip explains it |
 | Refresh button | `arrow.clockwise` icon, `.caption`, `.secondary` — tooltip shows "Usage updated N ago" |
 | Settings menu | `gearshape` icon, `.caption`, `.secondary`, no menu indicator |
 | Padding | 12pt horizontal, 8pt vertical |
@@ -389,6 +406,9 @@ Shown when no sessions exist.
 | `macwindow` | Focus IDE (VS Code, JetBrains, etc.) | `.body` |
 | `arrow.triangle.pull` | PR / branch link (metadata line) | `.caption2` |
 | `trash` | Delete session (expanded detail) | `.caption` |
+| `arrow.up.forward.app` | Focus session (expanded detail) | `.caption` |
+| `doc.on.doc` | Copy session ID (expanded detail, context menu) | `.caption2` |
+| `pin` / `pin.fill` | Open / close the floating window (footer) | `.caption` |
 | `chevron.right` / `chevron.down` | Section collapse toggle | 8pt system, `.semibold` |
 | `network` | Remote host indicator | `.caption2` |
 | `gearshape` | Settings menu | `.caption` |
