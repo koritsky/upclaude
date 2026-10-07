@@ -3,8 +3,20 @@ import SwiftUI
 /// Main sessions list grouped by GitHub repo (or project name for local repos).
 public struct SessionsTab: View {
     @Environment(AppState.self) private var appState
+    @State private var contentHeight: CGFloat = 0
 
-    public init() {}
+    /// When true the list grows to fit its content (up to `maxFittedHeight`) instead of
+    /// filling the available space. Used by the menu bar panel, which sizes itself to its content.
+    private let fitsContent: Bool
+
+    public init(fitsContent: Bool = false) {
+        self.fitsContent = fitsContent
+    }
+
+    /// Tallest the fitted list may get before it starts scrolling: 60% of the screen's usable height.
+    private var maxFittedHeight: CGFloat {
+        (NSScreen.main?.visibleFrame.height ?? 800) * 0.6
+    }
 
     /// Sessions grouped alphabetically (stable order).
     private var groupedSessions: [(key: String, sessions: [AgentSession])] {
@@ -92,7 +104,14 @@ public struct SessionsTab: View {
             .padding(.horizontal, 8)
             .padding(.top, 10)
             .padding(.bottom, 4)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                contentHeight = height
+            }
         }
+        .frame(height: fitsContent ? min(contentHeight, maxFittedHeight) : nil)
+        .scrollBounceBehavior(.basedOnSize)
         .mask(
             VStack(spacing: 0) {
                 LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
