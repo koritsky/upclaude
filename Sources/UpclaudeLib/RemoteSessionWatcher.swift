@@ -54,14 +54,7 @@ public class RemoteSessionWatcher {
         guard sessionId.unicodeScalars.allSatisfy({ safeChars.contains($0) }) else { return }
 
         DispatchQueue.global(qos: .utility).async {
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-            task.arguments = Self.sshArguments(
-                host: host, command: "rm -f ~/.upclaude/sessions/\(sessionId).json")
-            task.standardOutput = FileHandle.nullDevice
-            task.standardError = FileHandle.nullDevice
-            try? task.run()
-            task.waitUntilExit()
+            _ = Self.runSSH(host: host, command: "rm -f ~/.upclaude/sessions/\(sessionId).json")
         }
     }
 
@@ -278,34 +271,17 @@ public class RemoteSessionWatcher {
     public static func checkRemoteHooks(
         host: String, completion: @escaping (RemoteHookStatus) -> Void
     ) {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/ssh")
-        task.arguments = sshArguments(
-            host: host,
-            command: "test -f ~/.upclaude/hooks/upclaude-hook.py && echo installed || echo missing")
-
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = FileHandle.nullDevice
-
         DispatchQueue.global(qos: .utility).async {
-            do {
-                try task.run()
-                task.waitUntilExit()
-
-                guard task.terminationStatus == 0 else {
-                    DispatchQueue.main.async { completion(.error) }
-                    return
-                }
-
-                let output =
-                    String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                let status: RemoteHookStatus = output == "installed" ? .installed : .notInstalled
-                DispatchQueue.main.async { completion(status) }
-            } catch {
-                DispatchQueue.main.async { completion(.error) }
+            let output = runSSH(
+                host: host,
+                command: "test -f ~/.upclaude/hooks/upclaude-hook.py && echo installed || echo missing")
+            let status: RemoteHookStatus
+            switch output?.trimmingCharacters(in: .whitespacesAndNewlines) {
+            case nil: status = .error
+            case "installed": status = .installed
+            default: status = .notInstalled
             }
+            DispatchQueue.main.async { completion(status) }
         }
     }
 
