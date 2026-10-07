@@ -44,13 +44,19 @@ class TestGetContextWindow:
         fake = Path("/nonexistent/cache.json")
         with patch.object(hook, "MODEL_CACHE_FILE", fake):
             with patch("urllib.request.urlopen", side_effect=Exception):
-                assert hook.get_context_window("claude-opus-4-6") == 1000000
+                assert hook.get_context_window("claude-opus-5-5") == 1000000
 
-    def test_fallback_baseline_has_sonnet_200k(self, hook):
+    def test_fallback_baseline_has_sonnet_1m(self, hook):
         fake = Path("/nonexistent/cache.json")
         with patch.object(hook, "MODEL_CACHE_FILE", fake):
             with patch("urllib.request.urlopen", side_effect=Exception):
-                assert hook.get_context_window("claude-sonnet-4-6") == 200000
+                assert hook.get_context_window("claude-sonnet-5-5") == 1000000
+
+    def test_fallback_baseline_has_haiku_200k(self, hook):
+        fake = Path("/nonexistent/cache.json")
+        with patch.object(hook, "MODEL_CACHE_FILE", fake):
+            with patch("urllib.request.urlopen", side_effect=Exception):
+                assert hook.get_context_window("claude-haiku-4-5") == 200000
 
 
 # -- Transcript reading --
@@ -615,13 +621,19 @@ class TestIsLastEntryInterrupt:
         """User interrupt message with correct JSON structure is detected."""
         transcript = make_transcript(
             [
-                {"type": "assistant", "message": {"role": "assistant", "content": "working"}},
+                {
+                    "type": "assistant",
+                    "message": {"role": "assistant", "content": "working"},
+                },
                 {
                     "type": "user",
                     "message": {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "[Request interrupted by user for tool use]"}
+                            {
+                                "type": "text",
+                                "text": "[Request interrupted by user for tool use]",
+                            }
                         ],
                     },
                 },
@@ -638,7 +650,10 @@ class TestIsLastEntryInterrupt:
                     "message": {
                         "role": "assistant",
                         "content": [
-                            {"type": "text", "text": "Request interrupted by user is handled by the watcher"}
+                            {
+                                "type": "text",
+                                "text": "Request interrupted by user is handled by the watcher",
+                            }
                         ],
                     },
                 },
@@ -723,7 +738,10 @@ class TestWatcherResolveActiveTools:
                     "message": {
                         "role": "assistant",
                         "content": [
-                            {"type": "text", "text": "Request interrupted by user is a known issue"}
+                            {
+                                "type": "text",
+                                "text": "Request interrupted by user is a known issue",
+                            }
                         ],
                     },
                 },

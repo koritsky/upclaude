@@ -1,6 +1,6 @@
 [tools]
-swiftlint = "0.63"
-ruff = "latest"
+swiftlint = "0.65"
+ruff = "0.16"
 uv = "latest"
 
 [env]
@@ -70,7 +70,7 @@ else
 fi
 ruff check Sources/ClawdboardLib/Resources/ scripts/
 ruff format --check Sources/ClawdboardLib/Resources/ scripts/
-uvx ty check Sources/ClawdboardLib/Resources/ scripts/
+uvx ty@0.0.85 check Sources/ClawdboardLib/Resources/ scripts/
 """
 
 [tasks.test-py]
@@ -127,7 +127,7 @@ if [ -n "$PY_FILES" ]; then
     echo "$PY_FILES" | xargs ruff format --check
 
     echo "uvx ty check..."
-    echo "$PY_FILES" | xargs uvx ty check
+    echo "$PY_FILES" | xargs uvx ty@0.0.85 check
 fi
 
 echo "All checks passed."

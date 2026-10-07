@@ -39,12 +39,16 @@ struct ModelsTests {
     @Test("shortModelName extracts model family")
     func shortModelName() {
         let opus = AgentSession(
-            sessionId: "1", cwd: "/a", projectName: "a", model: "claude-opus-4-6", isHookTracked: true)
+            sessionId: "1", cwd: "/a", projectName: "a", model: "claude-opus-5-5", isHookTracked: true)
         #expect(opus.shortModelName == "Opus")
 
         let sonnet = AgentSession(
-            sessionId: "2", cwd: "/b", projectName: "b", model: "claude-sonnet-4-6", isHookTracked: true)
+            sessionId: "2", cwd: "/b", projectName: "b", model: "claude-sonnet-5-5", isHookTracked: true)
         #expect(sonnet.shortModelName == "Sonnet")
+
+        let fable = AgentSession(
+            sessionId: "5", cwd: "/e", projectName: "e", model: "claude-fable-5-1", isHookTracked: true)
+        #expect(fable.shortModelName == "Fable")
 
         let haiku = AgentSession(
             sessionId: "3", cwd: "/c", projectName: "c", model: "claude-haiku-4-5-20251001", isHookTracked: true)
