@@ -452,6 +452,52 @@ class TestEventHandlers:
         assert state["active_tools"]["t1"]["command"] == "rm -rf /"
         assert state["status"] == "needs_approval"
 
+    def test_permission_request_without_id_reuses_the_running_call(
+        self, hook, make_state
+    ):
+        """A question dialog has no resolvable tool_use_id; it must not leave a second entry."""
+        make_state(
+            "s1",
+            {
+                "session_id": "s1",
+                "updated_at": NOW,
+                "active_tools": {
+                    "t0": {"status": "working", "tool_name": "Bash", "agent_id": ""},
+                    "t1": {
+                        "status": "working",
+                        "tool_name": "AskUserQuestion",
+                        "agent_id": "",
+                        "added_at": NOW,
+                    },
+                },
+                "agent_working": True,
+            },
+        )
+        state_file = hook.SESSIONS_DIR / "s1.json"
+        hook.handle_permission_request(
+            state_file,
+            "s1",
+            "/proj",
+            "proj",
+            NOW,
+            99,
+            agent_id="",
+            tool_name="AskUserQuestion",
+            tool_input={"questions": []},
+        )
+        state = read_session(hook, "s1")
+        assert set(state["active_tools"]) == {"t0", "t1"}
+        assert state["active_tools"]["t1"]["status"] == "needs_approval"
+        assert state["status"] == "needs_approval"
+
+        # Answering the question ends the call and the approval state with it.
+        hook.handle_post_tool_use(
+            state_file, "", "s1", "/proj", "proj", NOW, 99, tool_use_id="t1"
+        )
+        state = read_session(hook, "s1")
+        assert set(state["active_tools"]) == {"t0"}
+        assert state["status"] == "working"
+
     def test_permission_request_synthetic_key_fallback(self, hook, make_state):
         """When tool_use_id can't be resolved, a synthetic key is used."""
         make_state(

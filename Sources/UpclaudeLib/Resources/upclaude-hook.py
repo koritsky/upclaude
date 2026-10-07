@@ -1122,6 +1122,24 @@ def _find_tool_use_id_in_transcript(
     return None
 
 
+def _find_pending_tool(tools: JsonDict, tool_name: str, agent_id: str) -> str | None:
+    """Return the key of the newest running call to this tool, as recorded by PreToolUse.
+
+    PermissionRequest carries no tool_use_id. When the transcript lookup can't supply one
+    either (the entry isn't flushed yet, or the input doesn't compare equal), this ties the
+    request to the call it belongs to, so PostToolUse clears the approval state with it.
+    """
+    pending = [
+        (entry.get("added_at", ""), key)
+        for key, entry in tools.items()
+        if isinstance(entry, dict)
+        and entry.get("status") == "working"
+        and entry.get("tool_name") == tool_name
+        and entry.get("agent_id", "") == agent_id
+    ]
+    return max(pending)[1] if pending else None
+
+
 # --- Shared helpers for event handlers ---
 
 
@@ -1258,6 +1276,8 @@ def handle_permission_request(
             state_file, session_id, cwd, project_name, now, claude_pid
         )
         tools = state.get("active_tools", {})
+        if not tool_use_id:
+            tool_use_id = _find_pending_tool(tools, tool_name, agent_id) or ""
 
         tool_entry: JsonDict = {
             "status": "needs_approval",
