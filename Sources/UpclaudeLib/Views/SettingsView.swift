@@ -16,6 +16,8 @@ public struct SettingsView: View {
     @AppStorage("useRedYellowMode") private var useRedYellowMode = true
     @AppStorage("usageRingThreshold") private var usageRingThreshold = 50
     @AppStorage("autoDeleteHours") private var autoDeleteHours: Double = 0.0
+    @AppStorage(NotificationManager.approvalKey) private var notifyOnApproval = false
+    @AppStorage(NotificationManager.finishedKey) private var notifyOnFinished = false
     @Environment(AppState.self) private var appState
 
     public init() {}
@@ -33,6 +35,21 @@ public struct SettingsView: View {
         .onAppear {
             checkHookStatus()
             iterm2Installed = ITerm2Installer.isInstalled
+        }
+    }
+
+    /// A notification setting; switching it on asks macOS for notification permission.
+    private func notificationToggle(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: isOn.wrappedValue) { _, enabled in
+            if enabled { NotificationManager.shared.requestAuthorization() }
         }
     }
 
@@ -72,6 +89,15 @@ public struct SettingsView: View {
             }
 
             Section("Notifications") {
+                notificationToggle(
+                    "Notify when a session needs approval",
+                    detail: "Shows a macOS notification when Claude asks for permission",
+                    isOn: $notifyOnApproval)
+                notificationToggle(
+                    "Notify when a session finishes",
+                    detail: "Shows a macOS notification when Claude stops and it's your turn",
+                    isOn: $notifyOnFinished)
+
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Approval alert sound")

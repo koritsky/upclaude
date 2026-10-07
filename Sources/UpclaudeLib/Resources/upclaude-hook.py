@@ -999,6 +999,59 @@ def extract_prompt_first_line(prompt: str, max_len: int = 200) -> str | None:
     return first_line or None
 
 
+def first_text_line(text: str, max_len: int = 200) -> str | None:
+    """Return the first non-empty line of some text, trimmed, or None if there is none."""
+    for line in text.splitlines():
+        line = line.strip()
+        if line:
+            return line[:max_len]
+    return None
+
+
+def read_last_assistant_text(transcript_path: str) -> str:
+    """Return the text of the most recent assistant message in the transcript, or ""."""
+    if not transcript_path or not os.path.isfile(transcript_path):
+        return ""
+    try:
+        with open(transcript_path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(size - min(size, 100 * 1024))
+            lines = f.read().decode("utf-8", errors="replace").strip().split("\n")
+    except OSError:
+        return ""
+
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except Exception:
+            continue
+        if entry.get("type") != "assistant" or entry.get("isSidechain"):
+            continue
+        content = (entry.get("message") or {}).get("content")
+        if isinstance(content, str) and content.strip():
+            return content
+        if isinstance(content, list):
+            texts = [
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ]
+            joined = "\n".join(t for t in texts if t.strip())
+            if joined:
+                return joined
+    return ""
+
+
+def tool_target(tool_input: JsonDict | None) -> str:
+    """What a non-Bash tool call acts on (a file, URL, or pattern), for display."""
+    for key in ("file_path", "notebook_path", "path", "url", "pattern", "query"):
+        value = (tool_input or {}).get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
 def generate_title_async(state_file: Path, user_prompts: list[str]) -> None:
     """Spawn a detached process to generate a session title via claude CLI.
 
@@ -1214,6 +1267,8 @@ def handle_permission_request(
         }
         if cmd:
             tool_entry["command"] = cmd
+        elif target := tool_target(tool_input):
+            tool_entry["target"] = target
 
         if tool_use_id and tool_use_id in tools:
             # Update existing entry (PreToolUse already added it)
@@ -1275,6 +1330,7 @@ def handle_stop(
     session_id: str,
     agent_id: str,
     now: str,
+    last_message: str = "",
 ) -> None:
     # Subagent Stop is a no-op — SubagentStop handles cleanup
     if agent_id:
@@ -1287,6 +1343,13 @@ def handle_stop(
             return
         _full_reset(state, now)
         _update_session_metadata(state, transcript_path, state.get("cwd", ""), now)
+        # Shown in the "finished" notification. Prefer what the hook was handed; the
+        # transcript may not have the final message flushed yet.
+        reply = first_text_line(
+            last_message or read_last_assistant_text(transcript_path)
+        )
+        if reply:
+            state["last_reply"] = reply
         state["status"] = derive_status(state)
         update_terminal_tab_title(state)
         write_state(state_file, state)
@@ -1332,6 +1395,9 @@ def handle_user_prompt_submit(
         _full_reset(state, now)
         state["agent_working"] = True  # Override: model is now generating
         state["transcript_path"] = transcript_path
+        state["turn_started_at"] = now
+        if last_prompt := extract_prompt_first_line(prompt):
+            state["last_prompt"] = last_prompt
 
         # Capture the first user prompt as a fallback label
         if prompt and not state.get("first_prompt"):
@@ -1505,7 +1571,14 @@ def main() -> None:
             tool_use_id,
         )
     elif hook_event == "Stop":
-        handle_stop(state_file, transcript_path, session_id, agent_id, now)
+        handle_stop(
+            state_file,
+            transcript_path,
+            session_id,
+            agent_id,
+            now,
+            hook_input.get("last_assistant_message") or "",
+        )
     elif hook_event == "StopFailure":
         handle_stop_failure(state_file, session_id, agent_id, now)
     elif hook_event == "UserPromptSubmit":

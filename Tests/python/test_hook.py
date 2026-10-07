@@ -618,6 +618,89 @@ class TestEventHandlers:
         assert state["active_tools"] == {}  # Stale tools cleared
         assert state["subagents"] == []  # Stale subagents cleared
 
+    def test_user_prompt_submit_records_turn_start_and_prompt(
+        self, hook, make_state, make_transcript
+    ):
+        make_state("s1", {"session_id": "s1", "updated_at": NOW})
+        hook.handle_user_prompt_submit(
+            hook.SESSIONS_DIR / "s1.json",
+            str(make_transcript([])),
+            "s1",
+            "/proj",
+            "proj",
+            NOW,
+            99,
+            prompt="fix the login bug\nand add a test",
+        )
+        state = read_session(hook, "s1")
+        assert state["turn_started_at"] == NOW
+        assert state["last_prompt"] == "fix the login bug"
+
+    def test_stop_records_last_reply_from_hook_input(
+        self, hook, make_state, make_transcript
+    ):
+        make_state("s1", {"session_id": "s1", "updated_at": NOW})
+        hook.handle_stop(
+            hook.SESSIONS_DIR / "s1.json",
+            str(make_transcript([])),
+            "s1",
+            "",
+            NOW,
+            "\nFixed the bug.\n\nDetails follow.",
+        )
+        assert read_session(hook, "s1")["last_reply"] == "Fixed the bug."
+
+    def test_stop_records_last_reply_from_transcript(
+        self, hook, make_state, make_transcript
+    ):
+        make_state("s1", {"session_id": "s1", "updated_at": NOW})
+        transcript = make_transcript(
+            [
+                {
+                    "type": "assistant",
+                    "message": {"content": [{"type": "text", "text": "Older reply"}]},
+                },
+                {"type": "user", "message": {"content": "thanks"}},
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [
+                            {"type": "thinking", "thinking": "hmm"},
+                            {"type": "text", "text": "All 12 tests pass.\nMore."},
+                        ]
+                    },
+                },
+                {
+                    "type": "assistant",
+                    "isSidechain": True,
+                    "message": {"content": [{"type": "text", "text": "subagent"}]},
+                },
+            ]
+        )
+        hook.handle_stop(hook.SESSIONS_DIR / "s1.json", str(transcript), "s1", "", NOW)
+        assert read_session(hook, "s1")["last_reply"] == "All 12 tests pass."
+
+    def test_permission_request_records_target_for_file_tools(self, hook, make_state):
+        make_state(
+            "s1",
+            {"session_id": "s1", "updated_at": NOW, "active_tools": {}},
+        )
+        hook.handle_permission_request(
+            hook.SESSIONS_DIR / "s1.json",
+            "s1",
+            "/proj",
+            "proj",
+            NOW,
+            99,
+            agent_id="",
+            tool_use_id="t1",
+            tool_name="Edit",
+            tool_input={"file_path": "/proj/app.py", "old_string": "a"},
+        )
+        tool = read_session(hook, "s1")["active_tools"]["t1"]
+        assert tool["target"] == "/proj/app.py"
+        assert "command" not in tool
+
 
 # -- Tag stripping / first-line extraction --
 

@@ -64,6 +64,15 @@ public class AppState {
     // MARK: - Lifecycle
 
     public func start() {
+        NotificationManager.shared.onOpenSession = { [weak self] sessionId in
+            self?.focusSession(id: sessionId)
+        }
+        NotificationManager.shared.focusCommands = { [weak self] session in
+            self?.terminalFocusCommands(for: session) ?? []
+        }
+        NotificationManager.shared.isSessionFocused = { [weak self] session in
+            self?.isTerminalSessionFocused(session) ?? false
+        }
         startDiffStatsProvider()
         startPRStatusProvider()
         terminalTabPoller = TerminalTabPoller { [weak self] sessionId, newTitle in
@@ -328,7 +337,7 @@ public class AppState {
 
         autoDeleteStaleSessions(&all, now: now)
 
-        let shouldPlayAlert = updateApprovalTracking(all)
+        let transitions = updateStatusTracking(all)
 
         // Preserve diff stats from previous cycle (poller cache is the source of truth,
         // but freshly-parsed sessions arrive with nil additions/deletions).
@@ -362,8 +371,22 @@ public class AppState {
         refreshPRStatusProviderTargets()
         terminalTabPoller?.pruneExcept(activeSessionIds: Set(all.map(\.id)))
 
-        if shouldPlayAlert {
+        announce(transitions)
+    }
+
+    /// Play the approval sound and post or withdraw notifications for status changes.
+    private func announce(_ transitions: StatusTransitions) {
+        if !transitions.needsApproval.isEmpty {
             AlertSoundManager.shared.play()
+        }
+        for sessionId in transitions.noLongerWaiting {
+            NotificationManager.shared.dismiss(sessionId: sessionId)
+        }
+        for session in transitions.needsApproval {
+            NotificationManager.shared.notify(.needsApproval, session: session)
+        }
+        for session in transitions.finished {
+            NotificationManager.shared.notify(.finished, session: session)
         }
     }
 
@@ -382,21 +405,39 @@ public class AppState {
         }
     }
 
-    /// Detect sessions that just transitioned to needsApproval, update tracking, and return whether to play alert.
-    private func updateApprovalTracking(_ all: [AgentSession]) -> Bool {
-        var shouldPlayAlert = false
+    /// Sessions whose status just changed in a way the user may want to hear about.
+    struct StatusTransitions {
+        /// Just started waiting for a permission decision.
+        var needsApproval: [AgentSession] = []
+        /// Just went from working to waiting for the user's next message.
+        var finished: [AgentSession] = []
+        /// Ids of sessions whose earlier notification is stale: working again, or gone.
+        var noLongerWaiting: [String] = []
+    }
+
+    /// Detect status transitions since the previous cycle and update tracking.
+    /// Sessions seen for the first time never count as a transition.
+    func updateStatusTracking(_ all: [AgentSession]) -> StatusTransitions {
+        var transitions = StatusTransitions()
         for session in all {
             let display = session.status
             let previous = previousStatuses[session.sessionId]
             if display == .needsApproval && previous != nil && previous != .needsApproval {
-                shouldPlayAlert = true
+                transitions.needsApproval.append(session)
+            }
+            if display == .waiting && previous == .working {
+                transitions.finished.append(session)
+            }
+            if display == .working && previous != nil && previous != .working {
+                transitions.noLongerWaiting.append(session.sessionId)
             }
             previousStatuses[session.sessionId] = display
         }
         // Clean up stale entries
         let activeIds = Set(all.map(\.sessionId))
+        transitions.noLongerWaiting += previousStatuses.keys.filter { !activeIds.contains($0) }
         previousStatuses = previousStatuses.filter { activeIds.contains($0.key) }
-        return shouldPlayAlert
+        return transitions
     }
 
     // MARK: - Session Processing
@@ -454,34 +495,72 @@ public class AppState {
         }
     }
 
-    public func focusITerm2Session(_ session: AgentSession) {
-        guard let uuid = session.iterm2SessionId else { return }
-        let focusScript = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".upclaude/iterm2-focus.py")
-        guard FileManager.default.fileExists(atPath: focusScript.path) else { return }
-        var arguments = [focusScript.path, uuid]
-        // Inside zellij the recorded UUID goes stale once the hosting tab is closed, so let the
-        // script find the pane through the zellij client that is attached right now.
-        if session.remoteHost == nil, let zellij = session.zellij {
-            arguments += ["--zellij-session", zellij.session]
+    /// Focus a session in its terminal or IDE, as clicking its row does. Used by notifications.
+    public func focusSession(id: String) {
+        guard let session = sessions.first(where: { $0.sessionId == id }) else { return }
+        if session.iterm2SessionId != nil {
+            focusITerm2Session(session)
+        } else if ideLockInfo(for: session) != nil {
+            focusIDESession(session)
         }
-        Self.runProcess("/usr/bin/python3", arguments: arguments)
-        focusZellijPane(session)
     }
 
-    /// Inside zellij the iTerm2 pane only gets us to the multiplexer, so also ask zellij to
-    /// focus the session's own pane, which switches to its tab as well.
-    private func focusZellijPane(_ session: AgentSession) {
-        guard session.remoteHost == nil, let zellij = session.zellij,
-            FileManager.default.isExecutableFile(atPath: zellij.bin)
-        else { return }
-        Self.runProcess(
-            zellij.bin,
-            arguments: ["--session", zellij.session, "action", "focus-pane-id", zellij.paneId])
+    public func focusITerm2Session(_ session: AgentSession) {
+        NotificationManager.shared.dismiss(sessionId: session.sessionId)
+        for command in terminalFocusCommands(for: session) {
+            Self.runProcess(command[0], arguments: Array(command.dropFirst()))
+        }
+    }
+
+    /// Commands (as argument lists) that focus a session in iTerm2: the pane first, then its
+    /// zellij pane if it runs inside zellij. Empty when the session can't be focused this way.
+    /// Also used for notification clicks, which run outside the app.
+    func terminalFocusCommands(for session: AgentSession) -> [[String]] {
+        guard let uuid = session.iterm2SessionId else { return [] }
+        let focusScript = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".upclaude/iterm2-focus.py")
+        guard FileManager.default.fileExists(atPath: focusScript.path) else { return [] }
+
+        var focusPane = ["/usr/bin/python3", focusScript.path, uuid]
+        guard session.remoteHost == nil, let zellij = session.zellij else { return [focusPane] }
+
+        // Inside zellij the recorded UUID goes stale once the hosting tab is closed, so let the
+        // script find the pane through the zellij client that is attached right now.
+        focusPane += ["--zellij-session", zellij.session]
+        guard FileManager.default.isExecutableFile(atPath: zellij.bin) else { return [focusPane] }
+        // The iTerm2 pane only gets us to the multiplexer; focusing the session's own zellij
+        // pane switches to its tab as well.
+        return [
+            focusPane,
+            [zellij.bin, "--session", zellij.session, "action", "focus-pane-id", zellij.paneId],
+        ]
+    }
+
+    /// Whether the user is already looking at the session: iTerm2 is frontmost and showing
+    /// its pane (and, inside zellij, its zellij pane). Blocks while it asks iTerm2, so call
+    /// it off the main thread. IDE sessions always report false.
+    func isTerminalSessionFocused(_ session: AgentSession) -> Bool {
+        guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.googlecode.iterm2",
+            var command = terminalFocusCommands(for: session).first
+        else { return false }
+        command.append("--check")
+        if session.remoteHost == nil, let zellij = session.zellij {
+            command += ["--zellij-pane", zellij.paneId, "--zellij-bin", zellij.bin]
+        }
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: command[0])
+        task.arguments = Array(command.dropFirst())
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        guard (try? task.run()) != nil else { return false }
+        task.waitUntilExit()
+        return task.terminationStatus == 0
     }
 
     public func focusIDESession(_ session: AgentSession) {
         guard let lock = ideLockInfo(for: session) else { return }
+        NotificationManager.shared.dismiss(sessionId: session.sessionId)
 
         // Use workspace folder from lock file, fall back to session cwd.
         let folderPath = lock.workspaceFolders.first ?? session.cwd
