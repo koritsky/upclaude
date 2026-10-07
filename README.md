@@ -38,6 +38,7 @@ You're running five agents. One needs approval. Two are stuck. **Upclaude sits i
 
 **Get there in one click**
 - Focus in iTerm2: jumps to the exact terminal pane
+- Focus in iTerm2 + zellij: brings the iTerm2 pane forward, then switches to the session's zellij tab and pane ([details](docs/SETUP.md#pathway-1-terminal--iterm2))
 - Focus in VS Code: opens the right workspace window
 - Focus in JetBrains: opens the project, clicks the exact terminal tab
 
