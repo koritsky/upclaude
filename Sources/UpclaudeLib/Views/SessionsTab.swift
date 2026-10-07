@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Main sessions list grouped by GitHub repo (or project name for local repos).
+/// Main sessions list, grouped by project and by where the sessions run.
 public struct SessionsTab: View {
     @Environment(AppState.self) private var appState
     @State private var contentHeight: CGFloat = 0
@@ -18,25 +18,61 @@ public struct SessionsTab: View {
         (NSScreen.main?.visibleFrame.height ?? 800) * 0.6
     }
 
-    /// Sessions grouped alphabetically (stable order).
-    private var groupedSessions: [(key: String, sessions: [AgentSession])] {
-        let dict = Dictionary(grouping: appState.sortedSessions) { session in
-            session.githubRepo ?? session.projectName
+    /// A header and the sessions under it: one project in one working directory on one machine.
+    struct SessionGroup {
+        /// GitHub repo slug, or the project name for repos without a GitHub remote.
+        let project: String
+        /// Remote host the sessions run on, nil for this machine.
+        let host: String?
+        /// Directory the sessions work in.
+        let path: String
+        let sessions: [AgentSession]
+
+        /// Identifies the group, e.g. for remembering that it is collapsed.
+        var key: String { "\(project)|\(host ?? "")|\(path)" }
+
+        /// Header text: the repo name without its owner.
+        var displayName: String {
+            project.split(separator: "/").last.map(String.init) ?? project
         }
-        return
-            dict
-            .map { (key: $0.key, sessions: $0.value) }
-            .sorted { $0.key < $1.key }
+
+        /// Where the sessions work, shown after the name: `~/code/app` on this machine,
+        /// `host:~/code/app` on a remote one. The home directory is shortened to `~` using
+        /// the home the session reported; for local sessions that predate it, this user's.
+        var location: String {
+            let home = sessions.lazy.compactMap(\.home).first ?? (host == nil ? NSHomeDirectory() : nil)
+            var shown = path
+            if let home, !home.isEmpty {
+                if path == home {
+                    shown = "~"
+                } else if path.hasPrefix(home + "/") {
+                    shown = "~" + path.dropFirst(home.count)
+                }
+            }
+            return host.map { "\($0):\(shown)" } ?? shown
+        }
+    }
+
+    /// Sessions grouped by project, machine, and working directory, in a stable alphabetical
+    /// order. The same repo checked out in two places, or on two machines, gets a header for
+    /// each, so the header can say where its sessions run.
+    static func groups(for sessions: [AgentSession]) -> [SessionGroup] {
+        let grouped = Dictionary(grouping: sessions) { session in
+            [session.githubRepo ?? session.projectName, session.remoteHost ?? "", session.cwd]
+        }
+        return grouped.map { key, sessions in
+            SessionGroup(
+                project: key[0], host: key[1].isEmpty ? nil : key[1], path: key[2], sessions: sessions)
+        }
+        .sorted { ($0.displayName.lowercased(), $0.key) < ($1.displayName.lowercased(), $1.key) }
     }
 
     public var body: some View {
-        let groups = groupedSessions
+        let groups = Self.groups(for: appState.sortedSessions)
         ScrollView {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(groups, id: \.key) { group in
                     let isCollapsed = appState.collapsedGroups.contains(group.key)
-                    let displayName =
-                        group.key.split(separator: "/").last.map(String.init) ?? group.key
 
                     Button {
                         withAnimation(.easeInOut(duration: 0.15)) {
@@ -50,10 +86,20 @@ public struct SessionsTab: View {
                             )
                             .font(.system(size: 8, weight: .semibold))
                             .foregroundStyle(.tertiary)
-                            Text(displayName)
+                            Text(group.displayName)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
+                                .fixedSize()
+                            // Where these sessions work. Paths are case-sensitive, so this is
+                            // not uppercased; long ones lose their middle.
+                            Text(group.location)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .padding(.leading, 4)
+                                .help(group.location)
                             Spacer()
                             if isCollapsed {
                                 Text("\(group.sessions.count)")

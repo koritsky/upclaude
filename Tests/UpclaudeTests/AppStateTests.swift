@@ -164,6 +164,41 @@ struct AppStateTests {
         #expect(duration(-5) == nil)
     }
 
+    @Test("sessions are grouped by project, machine, and working directory")
+    func sessionGroups() {
+        let home = NSHomeDirectory()
+        func session(_ id: String, repo: String?, project: String, host: String?, cwd: String) -> AgentSession {
+            var session = AgentSession(sessionId: id, cwd: cwd, projectName: project, isHookTracked: true)
+            session.githubRepo = repo
+            session.remoteHost = host
+            return session
+        }
+        let groups = SessionsTab.groups(for: [
+            session("1", repo: "acme/app", project: "app", host: nil, cwd: "\(home)/code/app"),
+            session("2", repo: "acme/app", project: "app", host: "berghain", cwd: "/home/me/app"),
+            session("3", repo: "acme/app", project: "app", host: "berghain", cwd: "/home/me/app"),
+            session("4", repo: "acme/app", project: "app", host: nil, cwd: "\(home)/code/app-worktree"),
+            session("5", repo: nil, project: "scratch", host: nil, cwd: "/tmp/scratch"),
+        ])
+
+        #expect(groups.map(\.displayName) == ["app", "app", "app", "scratch"])
+        #expect(
+            groups.map(\.location)
+                == ["berghain:/home/me/app", "~/code/app", "~/code/app-worktree", "/tmp/scratch"])
+        #expect(groups[0].sessions.map(\.sessionId) == ["2", "3"])
+        #expect(Set(groups.map(\.key)).count == 4)
+
+        // A remote session that reports its home gets the same "~" shortening.
+        func remoteLocation(cwd: String) -> String? {
+            var remote = session("6", repo: "acme/app", project: "app", host: "berghain", cwd: cwd)
+            remote.home = "/home/me"
+            return SessionsTab.groups(for: [remote]).first?.location
+        }
+        #expect(remoteLocation(cwd: "/home/me/app") == "berghain:~/app")
+        #expect(remoteLocation(cwd: "/home/me") == "berghain:~")
+        #expect(remoteLocation(cwd: "/srv/app") == "berghain:/srv/app")
+    }
+
     @Test("activeSessions excludes unknown and abandoned")
     func activeSessions() {
         let state = AppState()

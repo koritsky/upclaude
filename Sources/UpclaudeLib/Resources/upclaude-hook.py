@@ -1193,6 +1193,8 @@ def _update_session_metadata(
         state["iterm2_session_id"] = iterm2_session_id_from_env()
     if not state.get("zellij"):
         state["zellij"] = zellij_pane_from_env()
+    if not state.get("home"):
+        state["home"] = str(Path.home())
 
 
 # --- Event handlers ---
@@ -1290,6 +1292,8 @@ def handle_session_start(
         "subagents": [],
         "iterm2_session_id": iterm2_session_id_from_env(),
         "zellij": zellij_pane_from_env(),
+        # Lets the app shorten paths under it to "~", also for sessions on other machines.
+        "home": str(Path.home()),
     }
     restore_durable_fields(state, state_file, session_id)
     if data.get("context_pct") is not None:
