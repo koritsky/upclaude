@@ -58,6 +58,23 @@ struct ModelsTests {
         #expect(noModel.shortModelName == "—")
     }
 
+    @Test("AgentSession decodes zellij pane when present")
+    func decodesZellijPane() throws {
+        let json = """
+            {
+                "session_id": "s1", "cwd": "/a", "project_name": "a", "is_hook_tracked": true,
+                "zellij": {"session": "main", "pane_id": "terminal_10", "bin": "/opt/bin/zellij"}
+            }
+            """
+        let session = try JSONDecoder().decode(AgentSession.self, from: Data(json.utf8))
+        #expect(session.zellij == ZellijPane(session: "main", paneId: "terminal_10", bin: "/opt/bin/zellij"))
+
+        let plain = """
+            {"session_id": "s2", "cwd": "/a", "project_name": "a", "is_hook_tracked": true, "zellij": null}
+            """
+        #expect(try JSONDecoder().decode(AgentSession.self, from: Data(plain.utf8)).zellij == nil)
+    }
+
     @Test("AgentSession decodes from JSON state file")
     func decodesFromJSON() throws {
         let json = """

@@ -14,6 +14,7 @@ import fcntl
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -189,6 +190,30 @@ def _load_model_cache() -> dict[str, int]:
         "claude-opus-4-1": 200000,
         "claude-haiku-4-5": 200000,
     }
+
+
+def iterm2_session_id_from_env() -> str | None:
+    """Return the iTerm2 pane UUID from ITERM_SESSION_ID ("w0t0p0:<uuid>"), if set.
+
+    Fallback for when the iTerm2 integration script can't match the Claude process to a
+    pane by walking its ancestors, e.g. inside zellij or tmux, whose server is detached
+    from the pane's shell. There it names the pane that started the multiplexer server.
+    """
+    return os.environ.get("ITERM_SESSION_ID", "").rpartition(":")[2] or None
+
+
+def zellij_pane_from_env() -> dict[str, str] | None:
+    """Return where this session lives inside zellij, or None when not running under it.
+
+    Lets the app switch to the right zellij tab and pane after focusing the terminal
+    window. The binary path is recorded because the app doesn't share the shell's PATH.
+    """
+    session = os.environ.get("ZELLIJ_SESSION_NAME")
+    pane = os.environ.get("ZELLIJ_PANE_ID")
+    binary = shutil.which("zellij")
+    if not (session and pane and binary):
+        return None
+    return {"session": session, "pane_id": f"terminal_{pane}", "bin": binary}
 
 
 def get_git_branch(cwd: str) -> str | None:
@@ -1068,6 +1093,10 @@ def _update_session_metadata(
     if data.get("context_pct") is not None:
         append_context_snapshot(state, data["context_pct"], now)
     update_commit_tracking(state, cwd or state.get("cwd", ""))
+    if not state.get("iterm2_session_id"):
+        state["iterm2_session_id"] = iterm2_session_id_from_env()
+    if not state.get("zellij"):
+        state["zellij"] = zellij_pane_from_env()
 
 
 # --- Event handlers ---
@@ -1106,6 +1135,8 @@ def handle_session_start(
         "active_tools": {},
         "agent_working": False,
         "subagents": [],
+        "iterm2_session_id": iterm2_session_id_from_env(),
+        "zellij": zellij_pane_from_env(),
     }
     if data.get("context_pct") is not None:
         append_context_snapshot(state, data["context_pct"], now)

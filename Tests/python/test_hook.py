@@ -227,6 +227,67 @@ class TestEventHandlers:
         assert state["active_tools"] == {}
         assert state["agent_working"] is False
 
+    def test_session_start_records_iterm2_pane_from_env(
+        self, hook, tmp_path, make_transcript, monkeypatch
+    ):
+        monkeypatch.setenv("ITERM_SESSION_ID", "w0t1p2:ABC-123")
+        state_file = tmp_path / "s1.json"
+        hook.handle_session_start(
+            state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
+        )
+        assert json.loads(state_file.read_text())["iterm2_session_id"] == "ABC-123"
+
+    def test_session_start_without_iterm2_env(
+        self, hook, tmp_path, make_transcript, monkeypatch
+    ):
+        monkeypatch.delenv("ITERM_SESSION_ID", raising=False)
+        state_file = tmp_path / "s1.json"
+        hook.handle_session_start(
+            state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
+        )
+        assert json.loads(state_file.read_text())["iterm2_session_id"] is None
+
+    def test_metadata_update_keeps_matched_iterm2_pane(
+        self, hook, make_transcript, monkeypatch
+    ):
+        monkeypatch.setenv("ITERM_SESSION_ID", "w0t0p0:FROM-ENV")
+        transcript = str(make_transcript([]))
+
+        matched = {"iterm2_session_id": "FROM-SCRIPT"}
+        hook._update_session_metadata(matched, transcript, "", NOW)
+        assert matched["iterm2_session_id"] == "FROM-SCRIPT"
+
+        unmatched: dict = {}
+        hook._update_session_metadata(unmatched, transcript, "", NOW)
+        assert unmatched["iterm2_session_id"] == "FROM-ENV"
+
+    def test_session_start_records_zellij_pane(
+        self, hook, tmp_path, make_transcript, monkeypatch
+    ):
+        monkeypatch.setenv("ZELLIJ_SESSION_NAME", "main")
+        monkeypatch.setenv("ZELLIJ_PANE_ID", "10")
+        monkeypatch.setattr(hook.shutil, "which", lambda _: "/opt/bin/zellij")
+        state_file = tmp_path / "s1.json"
+        hook.handle_session_start(
+            state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
+        )
+        assert json.loads(state_file.read_text())["zellij"] == {
+            "session": "main",
+            "pane_id": "terminal_10",
+            "bin": "/opt/bin/zellij",
+        }
+
+    def test_session_start_outside_zellij(
+        self, hook, tmp_path, make_transcript, monkeypatch
+    ):
+        monkeypatch.delenv("ZELLIJ_SESSION_NAME", raising=False)
+        monkeypatch.delenv("ZELLIJ_PANE_ID", raising=False)
+        state_file = tmp_path / "s1.json"
+        hook.handle_session_start(
+            state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
+        )
+        assert json.loads(state_file.read_text())["zellij"] is None
+
     def test_pre_tool_use_adds_tool(self, hook, make_state):
         make_state(
             "s1",

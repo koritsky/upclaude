@@ -46,6 +46,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Always update hook script (idempotent)
         try? hookManager.installHookScript()
+        // Keep already-installed iTerm2 scripts in step with this build.
+        if ITerm2Installer.isInstalled { try? ITerm2Installer.install() }
 
         // If all expected hooks are registered, nothing more to do
         guard !hookManager.isInstalled else { return }
@@ -328,7 +330,7 @@ struct MenuBarLabel: View {
     /// Seconds for one full fade-out/fade-in cycle of the "working" dots.
     static let pulsePeriod: TimeInterval = 4.0
     /// Lowest opacity the "working" dots fade to.
-    static let pulseMinAlpha: CGFloat = 0.1
+    static let pulseMinAlpha: CGFloat = 0.3
 
     static let dotSize: CGFloat = 8
     static let dotSpacing: CGFloat = 4

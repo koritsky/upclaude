@@ -53,6 +53,8 @@ On top of that, there are two IDE-specific integrations that enable the "Focus" 
 
 The AutoLaunch script runs in the background inside iTerm2, polling `~/.upclaude/sessions/` every 2 seconds. It matches Claude Code processes to iTerm2 panes by walking the process tree, then writes the pane UUID back into the session file. The "Focus" button uses AppleScript to select that pane.
 
+**Inside zellij**: a multiplexer's server is detached from the pane's shell, so the process-tree match finds nothing. The hook records the session's zellij session and pane instead. On "Focus", the app finds the zellij client currently attached to that session, selects the iTerm2 pane that owns its terminal, and runs `zellij action focus-pane-id` to switch to the right tab and pane. This keeps working after the iTerm2 tab is closed and zellij is re-attached in another one. If no client is attached, it falls back to the pane named by `ITERM_SESSION_ID` at session start. tmux is not supported. Known limitation: right after re-attaching zellij, the first "Focus" brings the iTerm2 pane forward but may not switch the zellij tab until you have interacted with zellij once. Failed focus attempts are logged to `~/.upclaude/focus.log`.
+
 ---
 
 ## Pathway 2: VS Code + Native macOS Tabs
