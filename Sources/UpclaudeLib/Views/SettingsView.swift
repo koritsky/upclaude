@@ -15,7 +15,6 @@ public struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @AppStorage("useRedYellowMode") private var useRedYellowMode = true
     @AppStorage("usageRingThreshold") private var usageRingThreshold = 50
-    @AppStorage(WorkingDotStyle.storageKey) private var workingDotStyle = WorkingDotStyle.blue
     @AppStorage("autoDeleteHours") private var autoDeleteHours: Double = 0.0
     @AppStorage(NotificationManager.approvalKey) private var notifyOnApproval = false
     @AppStorage(NotificationManager.finishedKey) private var notifyOnFinished = false
@@ -87,11 +86,6 @@ public struct SettingsView: View {
                     }
                 }
 
-                Picker("Menu bar dot for working sessions", selection: $workingDotStyle) {
-                    ForEach(WorkingDotStyle.allCases) { style in
-                        Text(style.label).tag(style)
-                    }
-                }
             }
 
             Section("Notifications") {

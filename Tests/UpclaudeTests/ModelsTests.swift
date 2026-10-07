@@ -224,25 +224,22 @@ struct ModelsTests {
         #expect(session.contextSnapshots == nil)
     }
 
-    // MARK: - WorkingDotStyle
+    // MARK: - ClaudeSpinner
 
-    @Test("WorkingDotStyle reads the stored style and falls back to blue")
-    func workingDotStyleCurrent() throws {
-        let suite = "WorkingDotStyleTests-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-
-        #expect(WorkingDotStyle.current(in: defaults) == .blue)
-        defaults.set("orange", forKey: WorkingDotStyle.storageKey)
-        #expect(WorkingDotStyle.current(in: defaults) == .orange)
-        defaults.set("bogus", forKey: WorkingDotStyle.storageKey)
-        #expect(WorkingDotStyle.current(in: defaults) == .blue)
+    @Test("ClaudeSpinner cycle goes out and back, resting on the smallest and fullest glyphs")
+    func claudeSpinnerCycle() {
+        let cycle = ClaudeSpinner.cycle(scale: 2)
+        // Six glyphs out, four back; the ends aren't repeated but are held longer.
+        #expect(cycle.frames.count == 10)
+        #expect(
+            cycle.durations == [0.36, 0.12, 0.12, 0.12, 0.12, 0.36, 0.12, 0.12, 0.12, 0.12])
     }
 
-    @Test("WorkingDotStyle only the hidden style has no color")
-    func workingDotStyleColor() {
-        #expect(WorkingDotStyle.blue.color != nil)
-        #expect(WorkingDotStyle.orange.color != nil)
-        #expect(WorkingDotStyle.hidden.color == nil)
+    @Test("ClaudeSpinner glyphs are drawn in a fixed square at the backing scale")
+    func claudeSpinnerGlyphImage() {
+        let image = ClaudeSpinner.glyphImage(ClaudeSpinner.restingGlyph, color: .gray, scale: 2)
+        #expect(image?.width == 24)
+        #expect(image?.height == 24)
+        #expect(ClaudeSpinner.cycle(scale: 3).frames.first?.width == 36)
     }
 }
