@@ -43,7 +43,7 @@ public struct AgentRow: View {
                 // Tappable content area (opens/focuses session)
                 Button(action: onActivate) {
                     HStack(spacing: 8) {
-                        StatusDot(status: session.status)
+                        StatusMark(status: session.status)
 
                         VStack(alignment: .leading, spacing: 1) {
                             TruncatingTitle(
@@ -51,45 +51,35 @@ public struct AgentRow: View {
                                 isHovered: $isTitleHovered,
                                 showPopover: $showTitlePopover
                             )
-
-                            HStack(spacing: 4) {
-                                if let host = session.remoteHost {
-                                    Image(systemName: "network")
-                                        .font(.caption2)
-                                    Text(host)
-                                    Text("·")
-                                }
-                                Text(session.status.displayLabel)
-                                    .frame(width: 56, alignment: .leading)
-                                if session.isHookTracked {
-                                    if let branch = session.gitBranch {
-                                        Text(branch)
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
-                                            .layoutPriority(-1)
-                                    }
-                                    // Diff stats shown in expanded details only
-                                }
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            statusLine
                         }
 
-                        Spacer()
+                        Spacer(minLength: 8)
 
+                        // Activity and PR widgets appear only when they have something to show.
                         HStack(spacing: 12) {
-                            SparklineView(
-                                snapshots: session.contextSnapshots ?? [],
-                                approvalTimestamps: session.approvalTimestamps ?? []
-                            )
-                            PRStatusIcon(
-                                prInfo: session.prInfo,
-                                commitCount: session.commitCount,
-                                unpushedCount: session.unpushedCount,
-                                commitCompareUrl: session.commitCompareUrl,
-                                isDirty: session.gitDirty == true
-                            )
+                            if SparklineView.hasActivity(session.contextSnapshots ?? []) {
+                                SparklineView(
+                                    snapshots: session.contextSnapshots ?? [],
+                                    approvalTimestamps: session.approvalTimestamps ?? []
+                                )
+                            }
+                            if PRStatusIcon.hasContent(
+                                prInfo: session.prInfo, commitCount: session.commitCount)
+                            {
+                                PRStatusIcon(
+                                    prInfo: session.prInfo,
+                                    commitCount: session.commitCount,
+                                    unpushedCount: session.unpushedCount,
+                                    commitCompareUrl: session.commitCompareUrl,
+                                    isDirty: session.gitDirty == true
+                                )
+                            } else if session.gitDirty == true {
+                                Circle()
+                                    .fill(.blue)
+                                    .frame(width: 6, height: 6)
+                                    .help("Uncommitted changes")
+                            }
                         }
                         .fixedSize()
                     }
@@ -133,12 +123,7 @@ public struct AgentRow: View {
                 if onFocusiTerm2 != nil || onFocusIDE != nil {
                     Divider()
                 }
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(
-                        session.sessionId, forType: .string
-                    )
-                } label: {
+                Button(action: copySessionId) {
                     Label("Copy Session ID", systemImage: "doc.on.doc")
                 }
                 if let onDelete = onDelete {
@@ -176,7 +161,12 @@ public struct AgentRow: View {
             Divider()
                 .padding(.vertical, 2)
 
-            DetailRow("Title", session.displayTitle)
+            if let prompt = session.lastPrompt ?? session.firstPrompt {
+                DetailRow("Prompt", prompt, lineLimit: 2, isProse: true)
+            }
+            if let reply = session.lastReply {
+                DetailRow("Reply", reply, lineLimit: 3, isProse: true)
+            }
 
             if let pct = session.contextPct {
                 HStack(spacing: 6) {
@@ -194,7 +184,7 @@ public struct AgentRow: View {
             if let host = session.remoteHost {
                 DetailRow("Host", host)
             }
-            DetailRow("Model", session.model ?? "—")
+            DetailRow("Model", session.modelAndEffort)
             DetailRow("Branch", session.gitBranch ?? "—")
             if let diffStats = session.formattedDiffStats {
                 HStack {
@@ -225,7 +215,17 @@ public struct AgentRow: View {
                     }
                 }
             }
-            DetailRow("Session", session.slug ?? session.sessionId)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                DetailRow("Session", session.slug ?? session.shortSessionId)
+                Button(action: copySessionId) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+                .help("Copy full session ID")
+            }
             DetailRow("Uptime", session.elapsedTime)
             DetailRow("Path", session.cwd)
 
@@ -263,9 +263,19 @@ public struct AgentRow: View {
                 .padding(.top, 2)
             }
 
-            if let onDelete = onDelete {
-                HStack {
-                    Spacer()
+            // Actions: go to the session on the left, remove it on the right.
+            HStack {
+                if let onFocus = onFocusiTerm2 ?? onFocusIDE {
+                    Button(action: onFocus) {
+                        Label(focusLabel, systemImage: "arrow.up.forward.app")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .pointingHandCursor()
+                    .padding(.leading, 66)
+                }
+                Spacer()
+                if let onDelete = onDelete {
                     Button(action: onDelete) {
                         Image(systemName: "trash")
                             .font(.caption)
@@ -279,6 +289,43 @@ public struct AgentRow: View {
                 }
             }
         }
+    }
+
+    /// Second line of the row: where it runs, its status and for how long, and what it is about.
+    private var statusLine: some View {
+        HStack(spacing: 4) {
+            if let host = session.remoteHost {
+                Image(systemName: "network")
+                    .font(.caption2)
+                Text(host)
+                Text("·")
+            }
+            Text(session.status.displayLabel)
+            // Redrawn every 30s so the duration keeps counting without new data.
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                if let duration = session.statusDurationText(now: context.date) {
+                    Text("· \(duration)")
+                }
+            }
+            if let summary = session.promptSummary {
+                Text("·")
+                Text(summary)
+                    .truncationMode(.tail)
+                    .layoutPriority(-1)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
+
+    private var focusLabel: String {
+        onFocusiTerm2 != nil ? "Focus in iTerm2" : "Focus in \(ideName ?? "VS Code")"
+    }
+
+    private func copySessionId() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(session.sessionId, forType: .string)
     }
 }
 

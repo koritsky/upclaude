@@ -26,6 +26,7 @@ def hook(tmp_sessions):
     spec.loader.exec_module(mod)
     # Redirect agent fact files to temp directory
     mod.SESSIONS_DIR = tmp_sessions  # ty: ignore[unresolved-attribute]
+    mod.ENDED_DIR = tmp_sessions.parent / "ended"  # ty: ignore[unresolved-attribute]
     return mod
 
 

@@ -33,6 +33,47 @@ public struct StatusDot: View {
     }
 }
 
+// MARK: - Status Mark
+
+/// A session's status as the menu bar draws it: Claude's orange spinner while working, a grey
+/// asterisk when it is your turn, a red dot when it needs approval.
+public struct StatusMark: View {
+    public let status: AgentStatus
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(status: AgentStatus) {
+        self.status = status
+    }
+
+    public var body: some View {
+        Group {
+            switch status {
+            case .working:
+                if reduceMotion {
+                    asterisk(ClaudeSpinner.restingGlyph, color: Color(nsColor: ClaudeSpinner.color))
+                } else {
+                    TimelineView(.periodic(from: .now, by: ClaudeSpinner.frameInterval)) { context in
+                        asterisk(
+                            ClaudeSpinner.glyph(at: context.date),
+                            color: Color(nsColor: ClaudeSpinner.color))
+                    }
+                }
+            case .waiting:
+                asterisk(ClaudeSpinner.restingGlyph, color: .secondary)
+            case .needsApproval, .unknown, .abandoned:
+                StatusDot(status: status)
+            }
+        }
+        .frame(width: 14, height: 14)
+    }
+
+    private func asterisk(_ glyph: String, color: Color) -> some View {
+        Text(glyph)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(color)
+    }
+}
+
 // MARK: - Context Bar
 
 /// Horizontal progress bar showing context window usage percentage.
@@ -61,7 +102,7 @@ public struct ContextBar: View {
 
     private func barColor(for pct: Double) -> Color {
         if pct >= 90 { return .red }
-        if pct >= 70 { return .orange }
+        if pct >= 70 { return .yellow }
         return .secondary
     }
 }
@@ -84,6 +125,13 @@ public struct PRStatusIcon: View {
     private static let badgeSize: CGFloat = 24
 
     private var status: PRStatus? { prInfo?.status }
+
+    /// Whether there is a pull request or session commits to show. Without either the badge
+    /// would be an empty box, so rows leave it out.
+    public static func hasContent(prInfo: PRInfo?, commitCount: Int?) -> Bool {
+        let hasPR = prInfo.map { $0.status != PRStatus.none } ?? false
+        return hasPR || (commitCount ?? 0) > 0
+    }
 
     /// Whether to show the commit badge instead of PR icon
     private var showCommitBadge: Bool {
@@ -458,6 +506,13 @@ public struct SparklineView: View {
         self.approvalTimestamps = approvalTimestamps
     }
 
+    /// Whether the chart would show anything: at least two snapshots inside its time window.
+    /// Without that it is a flat baseline, so rows leave it out.
+    public static func hasActivity(_ snapshots: [ContextSnapshot], now: Date = Date()) -> Bool {
+        let windowStart = now.addingTimeInterval(-Double(windowMinutes * 60))
+        return snapshots.filter { $0.t >= windowStart }.count >= 2
+    }
+
     public var body: some View {
         // tick is read here so SwiftUI tracks it as a dependency
         let _ = tick  // swiftlint:disable:this redundant_discardable_let
@@ -520,7 +575,7 @@ public struct SparklineView: View {
                 context.fill(Path(ellipseIn: dot), with: .color(.red))
             }
         }
-        .frame(width: 130, height: 24)
+        .frame(width: 80, height: 24)
         .onReceive(timer) { _ in tick.toggle() }
     }
 
@@ -554,7 +609,7 @@ public struct SparklineView: View {
     private var strokeColor: Color {
         guard let last = snapshots.last else { return .secondary }
         if last.pct >= 90 { return .red }
-        if last.pct >= 70 { return .orange }
+        if last.pct >= 70 { return .yellow }
         return .secondary
     }
 }
@@ -629,9 +684,10 @@ struct UsageWindowView: View {
             .frame(height: 8)
 
             HStack {
-                Text(String(format: "est %.0f%%", window.estimated))
+                Text(String(format: "on pace for %.0f%%", window.estimated))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(paceColor)
+                    .help(paceHelp)
                 Spacer()
                 Text("resets \(window.remainingText)")
                     .font(.caption2.monospacedDigit())
@@ -641,35 +697,55 @@ struct UsageWindowView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// The projection is a warning once it passes the limit.
+    private var paceColor: Color {
+        if window.estimated >= 150 { return .red }
+        if window.estimated > 100 { return .yellow }
+        return .secondary
+    }
+
+    private var paceHelp: String {
+        let projection = String(format: "%.0f%%", window.estimated)
+        return window.estimated > 100
+            ? "At the current rate you reach the limit before this window resets (projected \(projection))."
+            : "At the current rate you end this window at \(projection) of the limit."
+    }
+
     private var barColor: Color {
         if window.utilization >= 90 { return .red }
-        if window.utilization >= 70 { return .orange }
+        if window.utilization >= 70 { return .yellow }
         return .secondary
     }
 }
 
 // MARK: - Detail Row
 
-/// Key-value pair for the expanded detail grid.
+/// Key-value pair for the expanded detail grid. Values are monospaced single lines by
+/// default; prose (a prompt, a reply) can wrap over a few lines in the regular font.
 public struct DetailRow: View {
     public let label: String
     public let value: String
+    public var lineLimit: Int
+    public var isProse: Bool
 
-    public init(_ label: String, _ value: String) {
+    public init(_ label: String, _ value: String, lineLimit: Int = 1, isProse: Bool = false) {
         self.label = label
         self.value = value
+        self.lineLimit = lineLimit
+        self.isProse = isProse
     }
 
     public var body: some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(width: 60, alignment: .trailing)
             Text(value)
-                .font(.caption.monospaced())
-                .lineLimit(1)
-                .truncationMode(.middle)
+                .font(isProse ? .caption : .caption.monospaced())
+                .lineLimit(lineLimit)
+                .truncationMode(isProse ? .tail : .middle)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

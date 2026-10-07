@@ -99,17 +99,11 @@ public struct PanelView: View {
 
             Spacer()
 
-            // Status pills — compact: dot + count only
-            HStack(spacing: 6) {
-                if appState.needsApprovalCount > 0 {
-                    StatusPill(count: appState.needsApprovalCount, label: "approve", color: .red)
-                }
-                if appState.waitingCount > 0 {
-                    StatusPill(count: appState.waitingCount, label: "your turn", color: .green)
-                }
-                if appState.workingCount > 0 {
-                    StatusPill(count: appState.workingCount, label: "working", color: .blue)
-                }
+            // How many sessions are in each state, in the same marks the rows use.
+            HStack(spacing: 10) {
+                StatusCount(status: .needsApproval, count: appState.needsApprovalCount)
+                StatusCount(status: .waiting, count: appState.waitingCount)
+                StatusCount(status: .working, count: appState.workingCount)
             }
         }
     }
@@ -122,34 +116,17 @@ public struct PanelView: View {
 
             Spacer()
 
-            Toggle(
-                isOn: Binding(
-                    get: { showFloatingWindow },
-                    set: { newValue in
-                        let menuBarPanel = NSApp.keyWindow
-                        showFloatingWindow = newValue
-                        if newValue {
-                            openWindow(id: "main")
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                                menuBarPanel?.orderOut(nil)
-                                for window in NSApp.windows
-                                where window.title == "Upclaude" && window.level == .floating {
-                                    window.makeKeyAndOrderFront(nil)
-                                }
-                                NSApp.activate(ignoringOtherApps: true)
-                            }
-                        } else {
-                            dismissWindow(id: "main")
-                        }
-                    }
-                )
-            ) {
-                Text("Detach")
+            Button {
+                setFloatingWindow(!showFloatingWindow)
+            } label: {
+                Image(systemName: showFloatingWindow ? "pin.fill" : "pin")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .toggleStyle(.checkbox)
-            .controlSize(.small)
+            .buttonStyle(.plain)
+            .help(
+                showFloatingWindow
+                    ? "Close the floating window" : "Keep the panel open as a floating window")
 
             Button {
                 appState.refreshUsageLimits()
@@ -185,6 +162,25 @@ public struct PanelView: View {
         }
     }
 
+    /// Open the panel as a floating window that stays on screen, or close that window.
+    private func setFloatingWindow(_ isFloating: Bool) {
+        let menuBarPanel = NSApp.keyWindow
+        showFloatingWindow = isFloating
+        guard isFloating else {
+            dismissWindow(id: "main")
+            return
+        }
+        openWindow(id: "main")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            menuBarPanel?.orderOut(nil)
+            for window in NSApp.windows
+            where window.title == "Upclaude" && window.level == .floating {
+                window.makeKeyAndOrderFront(nil)
+            }
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
+
     static func updatedText(_ date: Date) -> String {
         let interval = Date().timeIntervalSince(date)
         if interval < 5 { return "just now" }
@@ -196,26 +192,27 @@ public struct PanelView: View {
     }
 }
 
-// MARK: - Status Pill
+// MARK: - Status Count
 
-struct StatusPill: View {
-    let count: Int
-    let label: String
-    let color: Color
+/// Number of sessions in one state, shown with that state's mark. Hidden when zero.
+struct StatusCount: View {
+    let status: AgentStatus
+    private let sessionCount: Int
+
+    init(status: AgentStatus, count: Int) {
+        self.status = status
+        self.sessionCount = count
+    }
 
     var body: some View {
-        HStack(spacing: 3) {
-            Circle()
-                .fill(color)
-                .frame(width: 6, height: 6)
-            Text("\(count) \(label)")
-                .font(.caption2)
+        if sessionCount >= 1 {
+            HStack(spacing: 3) {
+                StatusMark(status: status)
+                Text("\(sessionCount)")
+                    .font(.caption.monospacedDigit().weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .help("\(sessionCount) \(status.displayLabel.lowercased())")
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(
-            Capsule()
-                .fill(color.opacity(0.12))
-        )
     }
 }

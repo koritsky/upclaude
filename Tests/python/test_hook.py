@@ -152,6 +152,21 @@ class TestReadTranscriptData:
             data = hook.read_transcript_data(str(transcript))
         assert data["context_pct"] == 15.0
 
+    def test_reads_effort_from_the_latest_assistant_entry(self, hook, make_transcript):
+        transcript = make_transcript(
+            [
+                {
+                    "sessionId": "s1",
+                    "effort": "high",
+                    "message": {
+                        "model": "claude-opus-5-5",
+                        "usage": {"input_tokens": 10, "output_tokens": 5},
+                    },
+                }
+            ]
+        )
+        assert hook.read_transcript_data(str(transcript))["effort"] == "high"
+
 
 # -- State helpers --
 
@@ -322,6 +337,68 @@ class TestEventHandlers:
             state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
         )
         assert json.loads(state_file.read_text())["zellij"] is None
+
+    def test_session_start_in_place_keeps_durable_fields(
+        self, hook, make_state, make_transcript
+    ):
+        """Compaction fires SessionStart again for a session whose state file still exists."""
+        make_state(
+            "s1",
+            {
+                "session_id": "s1",
+                "started_at": "2026-01-01T00:00:00Z",
+                "title": "fix-login",
+                "user_message_count": 7,
+                "last_reply": "Done.",
+                "active_tools": {"t1": {"status": "working"}},
+            },
+        )
+        state_file = hook.SESSIONS_DIR / "s1.json"
+        hook.handle_session_start(
+            state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
+        )
+        state = read_session(hook, "s1")
+        assert state["started_at"] == "2026-01-01T00:00:00Z"
+        assert state["title"] == "fix-login"
+        assert state["user_message_count"] == 7
+        assert state["last_reply"] == "Done."
+        # Transient state is still rebuilt.
+        assert state["active_tools"] == {}
+        assert state["updated_at"] == NOW
+
+    def test_resumed_session_restores_what_it_had_when_it_ended(
+        self, hook, make_state, make_transcript
+    ):
+        make_state(
+            "s1",
+            {
+                "session_id": "s1",
+                "started_at": "2026-01-01T00:00:00Z",
+                "title": "fix-login",
+                "pid": 123,
+            },
+        )
+        state_file = hook.SESSIONS_DIR / "s1.json"
+        hook.archive_ended_session(state_file, "s1")
+        state_file.unlink()
+        archived = json.loads((hook.ENDED_DIR / "s1.json").read_text())
+        assert archived == {"started_at": "2026-01-01T00:00:00Z", "title": "fix-login"}
+
+        hook.handle_session_start(
+            state_file, str(make_transcript([])), "s1", "/proj", "proj", NOW, 99
+        )
+        state = read_session(hook, "s1")
+        assert state["started_at"] == "2026-01-01T00:00:00Z"
+        assert state["title"] == "fix-login"
+        assert state["pid"] == 99
+        assert not (hook.ENDED_DIR / "s1.json").exists()
+
+    def test_stop_records_when_the_turn_ended(self, hook, make_state, make_transcript):
+        make_state("s1", {"session_id": "s1", "updated_at": NOW})
+        hook.handle_stop(
+            hook.SESSIONS_DIR / "s1.json", str(make_transcript([])), "s1", "", NOW
+        )
+        assert read_session(hook, "s1")["turn_ended_at"] == NOW
 
     def test_pre_tool_use_adds_tool(self, hook, make_state):
         make_state(

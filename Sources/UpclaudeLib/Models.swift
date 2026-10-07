@@ -327,6 +327,12 @@ public struct AgentSession: Identifiable, Codable, Equatable {
     /// When the current (or most recent) turn began, i.e. the last prompt was submitted
     public var turnStartedAt: Date?
 
+    /// Reasoning effort of the most recent turn ("low", "medium", "high", …), if recorded
+    public var effort: String?
+
+    /// When the most recent turn ended, i.e. Claude stopped and it became the user's turn
+    public var turnEndedAt: Date?
+
     /// First line of the user's most recent prompt
     public var lastPrompt: String?
 
@@ -400,6 +406,8 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         case iterm2SessionId = "iterm2_session_id"
         case zellij
         case turnStartedAt = "turn_started_at"
+        case turnEndedAt = "turn_ended_at"
+        case effort
         case lastPrompt = "last_prompt"
         case lastReply = "last_reply"
         case title
@@ -439,6 +447,8 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         iterm2SessionId: String? = nil,
         zellij: ZellijPane? = nil,
         turnStartedAt: Date? = nil,
+        turnEndedAt: Date? = nil,
+        effort: String? = nil,
         lastPrompt: String? = nil,
         lastReply: String? = nil,
         title: String? = nil,
@@ -476,6 +486,8 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         self.iterm2SessionId = iterm2SessionId
         self.zellij = zellij
         self.turnStartedAt = turnStartedAt
+        self.turnEndedAt = turnEndedAt
+        self.effort = effort
         self.lastPrompt = lastPrompt
         self.lastReply = lastReply
         self.title = title
@@ -516,6 +528,8 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         iterm2SessionId = try c.decodeIfPresent(String.self, forKey: .iterm2SessionId)
         zellij = try c.decodeIfPresent(ZellijPane.self, forKey: .zellij)
         turnStartedAt = try c.decodeIfPresent(Date.self, forKey: .turnStartedAt)
+        turnEndedAt = try c.decodeIfPresent(Date.self, forKey: .turnEndedAt)
+        effort = try c.decodeIfPresent(String.self, forKey: .effort)
         lastPrompt = try c.decodeIfPresent(String.self, forKey: .lastPrompt)
         lastReply = try c.decodeIfPresent(String.self, forKey: .lastReply)
         title = try c.decodeIfPresent(String.self, forKey: .title)
