@@ -20,7 +20,7 @@ All colors are semantic SwiftUI values — they adapt automatically to light/dar
 
 | Status | Color | Used in |
 |--------|-------|---------|
-| Working / Pending | `.blue` | StatusDot, StatusPill, subagent dots |
+| Working / Pending | `.blue` | StatusDot, StatusPill, subagent dots, menu bar dot (pulsing) |
 | Approve | `.red` | StatusDot, StatusPill, menu bar dot |
 | Your turn (waiting) | `.green` | StatusDot, StatusPill, menu bar dot |
 | Inactive (abandoned) | `.gray` at 40% opacity | StatusDot |
@@ -67,14 +67,14 @@ The menu bar icon adapts based on session state:
 
 **Idle (no active sessions)**: `apple.terminal` SF Symbol (template mode). If usage is above threshold, shows a usage ring instead.
 
-**Active sessions**: One colored dot per session, ordered by urgency (red → orange → green). No text, no icons — just dots.
+**Active sessions**: One colored dot per session, ordered by urgency (red → green → blue). No text, no icons — just dots. Blue "working" dots pulse so they read as activity and stay noticeable on any wallpaper.
 
 | Property | Value |
 |----------|-------|
 | Dot size | 8pt diameter |
 | Dot spacing | 4pt between dots |
 | Max dots | 8 (capped) |
-| Dot colors | `.systemRed` (approve), `.systemGreen` (your turn) |
+| Dot colors | `.systemRed` (approve), `.systemGreen` (your turn), `.systemBlue` (working, pulsing) |
 | Template mode | `false` when dots shown (preserves color) |
 | Usage ring | 14pt diameter, 2.5pt stroke, appended after dots if above threshold |
 
@@ -419,6 +419,7 @@ Shown when no sessions exist.
 | Row hover | 0.1s | ease-in-out | Background opacity 0.5↔0.8, bound to `isHovered` state |
 | Row expand/collapse | 0.15s | ease-in-out | Bound to `isExpanded` state |
 | Group collapse/expand | 0.15s | ease-in-out | Bound to `collapsedGroups` state |
+| Menu bar working dot pulse | 4s cycle | ease-in-out, autoreversing | Opacity 0.1↔1.0. The label draws working dots at 10%; `MenuBarPulseAnimator` fades full-strength dots over them with a Core Animation overlay on the status item button. The SwiftUI label itself is never animated (doing so breaks clicks). Static at full opacity when Reduce Motion is on |
 
 ---
 

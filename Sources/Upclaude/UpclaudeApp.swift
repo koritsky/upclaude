@@ -91,6 +91,7 @@ struct UpclaudeApp: App {
     @State private var appState: AppState = {
         let state = AppState()
         state.start()
+        MenuBarPulseAnimator.shared.start(appState: state)
         return state
     }()
     var body: some Scene {
@@ -324,6 +325,17 @@ struct MenuBarLabel: View {
     @AppStorage("usageRingThreshold") private var usageRingThreshold = 50
     @State private var menuBarAppearanceObserver = MenuBarAppearanceObserver()
 
+    /// Seconds for one full fade-out/fade-in cycle of the "working" dots.
+    static let pulsePeriod: TimeInterval = 4.0
+    /// Lowest opacity the "working" dots fade to.
+    static let pulseMinAlpha: CGFloat = 0.1
+
+    static let dotSize: CGFloat = 8
+    static let dotSpacing: CGFloat = 4
+    static let maxDots = 8
+    static let ringDiameter: CGFloat = 14
+    static let ringSpacing: CGFloat = 6
+
     /// Usage fill percentage (0–100) from the 5-hour usage limit, nil if unavailable.
     private var usagePct: CGFloat? {
         guard let limits = appState.usageLimits else { return nil }
@@ -343,9 +355,8 @@ struct MenuBarLabel: View {
         // Read to establish SwiftUI dependency so we redraw on appearance changes
         let _ = menuBarAppearanceObserver.isDark  // swiftlint:disable:this redundant_discardable_let
 
-        if approval == 0 && waiting == 0 {
-            // No urgent states (approval/waiting) - just show the terminal icon
-            // Blue "working" dots were hard to see against some backgrounds
+        if approval == 0 && waiting == 0 && working == 0 {
+            // No active sessions - just show the terminal icon
             if showRing, let pct = usagePct,
                 let img = Self.renderRingOnly(pct: pct)
             {
@@ -355,6 +366,9 @@ struct MenuBarLabel: View {
             }
         } else if let image = Self.renderDotsImage(
             approval: approval, waiting: waiting, working: working,
+            // Working dots are drawn at their dimmest; MenuBarPulseAnimator fades a full-strength
+            // copy in and out on top of them.
+            workingAlpha: MenuBarPulseAnimator.reduceMotion ? 1 : Self.pulseMinAlpha,
             useRedYellowMode: useRedYellowMode,
             usagePct: showRing ? usagePct : nil
         ) {
@@ -455,28 +469,23 @@ struct MenuBarLabel: View {
     /// Caps at maxDots to keep menu bar compact.
     /// The usage ring is drawn using the resolved menu bar foreground color
     /// so it adapts to wallpaper-driven tinting while dots keep their colors.
-    private static func renderDotsImage(
+    static func renderDotsImage(
         approval: Int, waiting: Int, working: Int,
+        workingAlpha: CGFloat,
         useRedYellowMode: Bool,
         usagePct: CGFloat? = nil
     ) -> NSImage? {
-        // Build dot list: most urgent first
-        // Only show red (approval) and green (waiting) - these are actionable states
-        // Blue "working" dots were hard to see and don't need user attention
+        // Build dot list: most urgent first.
+        // Red (approval) and green (waiting) need the user; blue (working) pulses via workingAlpha.
         var dots: [NSColor] = []
         for _ in 0..<approval { dots.append(.systemRed) }
         for _ in 0..<waiting { dots.append(.systemGreen) }
+        for _ in 0..<working { dots.append(.systemBlue.withAlphaComponent(workingAlpha)) }
         guard !dots.isEmpty else { return nil }
 
-        let maxDots = 8
         let capped = dots.prefix(maxDots)
-
-        let dotSize: CGFloat = 8
-        let dotSpacing: CGFloat = 4
         let menuBarHeight = NSStatusBar.system.thickness
 
-        let ringDiameter: CGFloat = 14
-        let ringSpacing: CGFloat = 6
         let hasRing = usagePct != nil
         let ringExtra: CGFloat = hasRing ? (ringSpacing + ringDiameter) : 0
 
@@ -535,6 +544,141 @@ struct MenuBarLabel: View {
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         return isDark ? .white : .black
     }
+}
+
+/// Pulses the "working" dots with a Core Animation overlay on the status item's button.
+///
+/// The SwiftUI label must stay static: updating a MenuBarExtra label at animation rates makes
+/// the status item stop responding to clicks, and swapping the button's image from a timer
+/// flickers because SwiftUI keeps re-applying its own image. So the label draws the working
+/// dots at their dimmest, and this overlay fades full-strength dots in and out on top.
+final class MenuBarPulseAnimator {
+    static let shared = MenuBarPulseAnimator()
+
+    private weak var appState: AppState?
+    private var timer: Timer?
+    private var overlay: PulseOverlayView?
+    private var layout: Layout?
+
+    /// Everything the overlay's geometry depends on; the overlay is rebuilt when it changes.
+    private struct Layout: Equatable {
+        let firstWorkingIndex: Int
+        let workingDots: Int
+        let imageWidth: CGFloat
+        let buttonSize: CGSize
+    }
+
+    static var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    func start(appState: AppState) {
+        self.appState = appState
+        guard timer == nil else { return }
+        // Only keeps the overlay in step with session counts; the fade itself runs in Core Animation.
+        let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.sync()
+        }
+        timer.tolerance = 0.05
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func sync() {
+        guard let appState, appState.workingCount > 0, !Self.reduceMotion,
+            let button = Self.statusBarButton()
+        else {
+            removeOverlay()
+            return
+        }
+
+        let urgent = appState.needsApprovalCount + appState.waitingCount
+        let total = min(urgent + appState.workingCount, MenuBarLabel.maxDots)
+        let firstWorking = min(urgent, MenuBarLabel.maxDots)
+
+        let threshold = UserDefaults.standard.object(forKey: "usageRingThreshold") as? Int ?? 50
+        let hasRing = appState.usageLimits.map { $0.fiveHour.utilization >= Double(threshold) } ?? false
+        let step = MenuBarLabel.dotSize + MenuBarLabel.dotSpacing
+        let dotsWidth = CGFloat(total) * step - MenuBarLabel.dotSpacing
+        let ringExtra = hasRing ? MenuBarLabel.ringSpacing + MenuBarLabel.ringDiameter : 0
+
+        let newLayout = Layout(
+            firstWorkingIndex: firstWorking,
+            workingDots: total - firstWorking,
+            imageWidth: dotsWidth + ringExtra,
+            buttonSize: button.bounds.size
+        )
+        if newLayout == layout, overlay?.superview === button { return }
+        removeOverlay()
+        guard newLayout.workingDots > 0 else { return }
+
+        let view = PulseOverlayView(frame: button.bounds)
+        view.autoresizingMask = [.width, .height]
+        // The button centers its image, so the dots start this far in.
+        let originX = (button.bounds.width - newLayout.imageWidth) / 2
+        let dotY = (button.bounds.height - MenuBarLabel.dotSize) / 2
+        for index in newLayout.firstWorkingIndex..<(newLayout.firstWorkingIndex + newLayout.workingDots) {
+            let dot = CALayer()
+            dot.frame = CGRect(
+                x: originX + CGFloat(index) * step, y: dotY,
+                width: MenuBarLabel.dotSize, height: MenuBarLabel.dotSize)
+            dot.cornerRadius = MenuBarLabel.dotSize / 2
+            dot.backgroundColor = NSColor.systemBlue.cgColor
+            view.layer?.addSublayer(dot)
+        }
+
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0
+        fade.toValue = 1
+        fade.duration = MenuBarLabel.pulsePeriod / 2
+        fade.autoreverses = true
+        fade.repeatCount = .infinity
+        fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        view.layer?.add(fade, forKey: "pulse")
+
+        button.addSubview(view)
+        overlay = view
+        layout = newLayout
+    }
+
+    private func removeOverlay() {
+        overlay?.removeFromSuperview()
+        overlay = nil
+        layout = nil
+    }
+
+    /// The button macOS creates for our status item, found through its NSStatusBarWindow.
+    private static func statusBarButton() -> NSStatusBarButton? {
+        for window in NSApp.windows
+        where String(describing: type(of: window)).contains("StatusBar") {
+            if let button = findButton(in: window.contentView) { return button }
+        }
+        return nil
+    }
+
+    private static func findButton(in view: NSView?) -> NSStatusBarButton? {
+        guard let view else { return nil }
+        if let button = view as? NSStatusBarButton { return button }
+        for subview in view.subviews {
+            if let button = findButton(in: subview) { return button }
+        }
+        return nil
+    }
+}
+
+/// Layer-backed view holding the pulsing dots. Ignores clicks so the status item still opens.
+private final class PulseOverlayView: NSView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// Observes the NSStatusBarWindow's effectiveAppearance via KVO so SwiftUI
