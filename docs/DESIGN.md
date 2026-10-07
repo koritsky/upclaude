@@ -435,6 +435,28 @@ Shown when no sessions exist.
 - "Clear" removes the configured sound
 - Sound plays once per transition — a session already in approval state won't re-trigger on subsequent rebuilds
 
+## System Notifications
+
+Standard macOS notifications, posted by `NotificationManager`. Both are opt-in toggles in Settings → General → **Notifications**, off by default.
+
+| Line | Finished (working → your turn) | Needs approval |
+|------|--------------------------------|----------------|
+| Title | `project · session title` | `project · session title` |
+| Subtitle | `Finished after 4m · branch` | `Needs approval · Bash` |
+| Body | First line of Claude's reply; falls back to your last prompt in quotes | The command, or the file/URL/pattern the tool wants to act on |
+
+- The project name is the one shown in the panel's group header
+- Turn length is omitted for the turn in progress when the app is first updated; branch and tool name are omitted when unknown
+- Body is a single line, cut at 200 characters
+- One notification per session — a newer event replaces the older one
+- Removed from the screen and Notification Center once it is no longer news: you focus the session (from the app, by clicking the notification, or by switching to its pane yourself — checked every 2s while a notification is showing), it starts working again, or it ends. AppleScript-fallback notifications can't be removed
+- Silent; the approval alert sound above is separate
+- Clicking a notification focuses the session, same as clicking its row
+- A session seen for the first time never triggers one
+- Skipped when you are already looking at the session: iTerm2 is the frontmost app and showing its pane (inside zellij, also its zellij pane). Sessions in an IDE are always notified
+- macOS asks for notification permission when a toggle is first turned on
+- Fallback: when the app can't post its own notification — unbundled development builds (`swift run`), or macOS refusing permission, as it does for ad-hoc signed bundles — it posts through `terminal-notifier` if installed (Homebrew or Nix paths), with a click command that focuses the session in iTerm2/zellij. Without `terminal-notifier` it uses AppleScript: that notification appears under Script Editor and clicking it opens Script Editor
+
 ---
 
 ### DiffStatsLabel

@@ -75,3 +75,56 @@ def test_no_client_returns_none(focus, monkeypatch):
         focus, "_run", lambda args: " 4082 ??  zellij --server /x/main\n"
     )
     assert focus.zellij_client_tty("main") is None
+
+
+LIST_CLIENTS = (
+    "CLIENT_ID ZELLIJ_PANE_ID RUNNING_COMMAND\n1         terminal_10    claude -c\n"
+)
+
+
+def _fake_run(current_pane, ps="", clients=LIST_CLIENTS):
+    def run(args):
+        if args[0] == "osascript":
+            return current_pane
+        if args[0] == "ps":
+            return ps
+        if "list-clients" in args:
+            return clients
+        return ""
+
+    return run
+
+
+def test_parse_focused_panes(focus):
+    assert focus.parse_focused_panes(LIST_CLIENTS) == {"terminal_10"}
+    assert focus.parse_focused_panes("") == set()
+
+
+def test_not_focused_when_iterm2_is_in_background(focus, monkeypatch):
+    monkeypatch.setattr(focus, "_run", _fake_run(""))
+    assert focus.is_focused("UUID-1", {}) is False
+
+
+def test_plain_pane_matches_by_id(focus, monkeypatch):
+    monkeypatch.setattr(focus, "_run", _fake_run("/dev/ttys001|UUID-1\n"))
+    assert focus.is_focused("UUID-1", {}) is True
+    assert focus.is_focused("UUID-2", {}) is False
+
+
+def test_zellij_needs_client_terminal_and_focused_pane(focus, monkeypatch):
+    ps = " 4082 ??  zellij --server /x/main\n27688 ttys008  zellij a main\n"
+    zellij = {
+        "--zellij-session": "main",
+        "--zellij-pane": "terminal_10",
+        "--zellij-bin": "/bin/zellij",
+    }
+
+    monkeypatch.setattr(focus, "_run", _fake_run("/dev/ttys008|ANY\n", ps))
+    assert focus.is_focused("STALE", zellij) is True
+
+    # Looking at zellij, but at a different pane.
+    assert focus.is_focused("STALE", {**zellij, "--zellij-pane": "terminal_3"}) is False
+
+    # Looking at another iTerm2 pane entirely.
+    monkeypatch.setattr(focus, "_run", _fake_run("/dev/ttys001|ANY\n", ps))
+    assert focus.is_focused("STALE", zellij) is False

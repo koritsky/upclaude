@@ -2,6 +2,11 @@
 """Focus an iTerm2 pane by its session UUID using AppleScript.
 
 Usage: python3 iterm2-focus.py <iterm2_session_uuid> [--zellij-session <name>]
+       python3 iterm2-focus.py <iterm2_session_uuid> --check
+           [--zellij-session <name> --zellij-pane <pane_id> --zellij-bin <path>]
+
+With --check nothing is focused: the exit status says whether the user is already looking
+at the pane (0) or not (1).
 
 Uses osascript for instant (<100ms) one-shot execution rather than
 the iTerm2 Python API which requires a persistent connection.
@@ -120,31 +125,51 @@ def zellij_client_tty(session: str) -> str | None:
     return f"/dev/{clients[0][1]}"
 
 
-def main() -> int:
-    args = sys.argv[1:]
-    zellij_session: str | None = None
-    if "--zellij-session" in args:
-        index = args.index("--zellij-session")
-        if index + 1 >= len(args):
-            print("--zellij-session needs a session name", file=sys.stderr)
-            return 1
-        zellij_session = args[index + 1]
-        del args[index : index + 2]
+CURRENT_PANE_SCRIPT = """
+tell application "iTerm2"
+    if not frontmost then return ""
+    tell current session of current window to return tty & "|" & unique id
+end tell
+"""
 
-    if len(args) != 1:
-        print(
-            f"Usage: {sys.argv[0]} <iterm2_session_uuid> [--zellij-session <name>]",
-            file=sys.stderr,
-        )
-        return 1
 
+def parse_focused_panes(list_clients_output: str) -> set[str]:
+    """Return the pane ids focused by attached clients, from `zellij action list-clients`."""
+    panes: set[str] = set()
+    for line in list_clients_output.splitlines()[1:]:
+        fields = line.split()
+        if len(fields) >= 2:
+            panes.add(fields[1])
+    return panes
+
+
+def is_focused(uuid: str, zellij: dict[str, str]) -> bool:
+    """Whether iTerm2 is frontmost and showing the given pane (and zellij pane, if any)."""
+    current = _run(["osascript", "-e", CURRENT_PANE_SCRIPT]).strip()
+    if "|" not in current:
+        return False
+    current_tty, current_id = current.split("|", 1)
+
+    session = zellij.get("--zellij-session")
+    if not session:
+        return current_id == uuid
+    if zellij_client_tty(session) != current_tty:
+        return False
+    pane, binary = zellij.get("--zellij-pane"), zellij.get("--zellij-bin")
+    if not (pane and binary):
+        return True
+    clients = _run([binary, "--session", session, "action", "list-clients"])
+    return pane in parse_focused_panes(clients)
+
+
+def focus(uuid: str, zellij_session: str | None) -> int:
     tty = zellij_client_tty(zellij_session) if zellij_session else None
     if tty:
         script = APPLESCRIPT_TEMPLATE.format(prop="tty", value=tty)
     else:
-        script = APPLESCRIPT_TEMPLATE.format(prop="unique id", value=args[0])
+        script = APPLESCRIPT_TEMPLATE.format(prop="unique id", value=uuid)
 
-    target = f"tty {tty}" if tty else f"id {args[0]}"
+    target = f"tty {tty}" if tty else f"id {uuid}"
     try:
         result = subprocess.run(
             ["osascript", "-e", script],
@@ -165,6 +190,35 @@ def main() -> int:
     if not result.stdout.strip():
         _log(f"{target}: no matching iTerm2 pane")
     return 0
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    check = "--check" in args
+    if check:
+        args.remove("--check")
+
+    zellij: dict[str, str] = {}
+    for option in ("--zellij-session", "--zellij-pane", "--zellij-bin"):
+        if option not in args:
+            continue
+        index = args.index(option)
+        if index + 1 >= len(args):
+            print(f"{option} needs a value", file=sys.stderr)
+            return 1
+        zellij[option] = args[index + 1]
+        del args[index : index + 2]
+
+    if len(args) != 1:
+        print(
+            f"Usage: {sys.argv[0]} <iterm2_session_uuid> [--zellij-session <name>] [--check]",
+            file=sys.stderr,
+        )
+        return 1
+
+    if check:
+        return 0 if is_focused(args[0], zellij) else 1
+    return focus(args[0], zellij.get("--zellij-session"))
 
 
 if __name__ == "__main__":

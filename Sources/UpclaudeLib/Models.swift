@@ -226,13 +226,28 @@ public struct ActiveTool: Codable, Equatable {
     public let toolName: String?
     public let agentId: String?
     public let command: String?
+    /// What a non-Bash tool acts on (file, URL, pattern), recorded for permission requests.
+    public let target: String?
     public let addedAt: Date?
+
+    public init(
+        status: AgentStatus? = nil, toolName: String? = nil, agentId: String? = nil,
+        command: String? = nil, target: String? = nil, addedAt: Date? = nil
+    ) {
+        self.status = status
+        self.toolName = toolName
+        self.agentId = agentId
+        self.command = command
+        self.target = target
+        self.addedAt = addedAt
+    }
 
     enum CodingKeys: String, CodingKey {
         case status
         case toolName = "tool_name"
         case agentId = "agent_id"
         case command
+        case target
         case addedAt = "added_at"
     }
 }
@@ -307,6 +322,15 @@ public struct AgentSession: Identifiable, Codable, Equatable {
     /// Zellij session and pane hosting this session, if it runs inside zellij
     public var zellij: ZellijPane?
 
+    /// When the current (or most recent) turn began, i.e. the last prompt was submitted
+    public var turnStartedAt: Date?
+
+    /// First line of the user's most recent prompt
+    public var lastPrompt: String?
+
+    /// First line of Claude's most recent reply, recorded when a turn ends
+    public var lastReply: String?
+
     /// AI-generated session title (available after title generation completes)
     public var title: String?
 
@@ -373,6 +397,9 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         case githubRepo = "github_repo"
         case iterm2SessionId = "iterm2_session_id"
         case zellij
+        case turnStartedAt = "turn_started_at"
+        case lastPrompt = "last_prompt"
+        case lastReply = "last_reply"
         case title
         case firstPrompt = "first_prompt"
         case startSha = "start_sha"
@@ -409,6 +436,9 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         githubRepo: String? = nil,
         iterm2SessionId: String? = nil,
         zellij: ZellijPane? = nil,
+        turnStartedAt: Date? = nil,
+        lastPrompt: String? = nil,
+        lastReply: String? = nil,
         title: String? = nil,
         firstPrompt: String? = nil,
         startSha: String? = nil,
@@ -443,6 +473,9 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         self.githubRepo = githubRepo
         self.iterm2SessionId = iterm2SessionId
         self.zellij = zellij
+        self.turnStartedAt = turnStartedAt
+        self.lastPrompt = lastPrompt
+        self.lastReply = lastReply
         self.title = title
         self.firstPrompt = firstPrompt
         self.startSha = startSha
@@ -480,6 +513,9 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         githubRepo = try c.decodeIfPresent(String.self, forKey: .githubRepo)
         iterm2SessionId = try c.decodeIfPresent(String.self, forKey: .iterm2SessionId)
         zellij = try c.decodeIfPresent(ZellijPane.self, forKey: .zellij)
+        turnStartedAt = try c.decodeIfPresent(Date.self, forKey: .turnStartedAt)
+        lastPrompt = try c.decodeIfPresent(String.self, forKey: .lastPrompt)
+        lastReply = try c.decodeIfPresent(String.self, forKey: .lastReply)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         firstPrompt = try c.decodeIfPresent(String.self, forKey: .firstPrompt)
         startSha = try c.decodeIfPresent(String.self, forKey: .startSha)
