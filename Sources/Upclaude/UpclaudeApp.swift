@@ -325,6 +325,7 @@ struct MenuBarLabel: View {
     let appState: AppState
     @AppStorage("useRedYellowMode") private var useRedYellowMode = true
     @AppStorage("usageRingThreshold") private var usageRingThreshold = 50
+    @AppStorage(WorkingDotStyle.storageKey) private var workingDotStyle = WorkingDotStyle.blue
     @State private var menuBarAppearanceObserver = MenuBarAppearanceObserver()
 
     /// Seconds for one full fade-out/fade-in cycle of the "working" dots.
@@ -353,7 +354,8 @@ struct MenuBarLabel: View {
     var body: some View {
         let approval = appState.needsApprovalCount
         let waiting = appState.waitingCount
-        let working = appState.workingCount
+        // Working sessions get no dot when the style is hidden.
+        let working = workingDotStyle.color == nil ? 0 : appState.workingCount
         // Read to establish SwiftUI dependency so we redraw on appearance changes
         let _ = menuBarAppearanceObserver.isDark  // swiftlint:disable:this redundant_discardable_let
 
@@ -371,6 +373,7 @@ struct MenuBarLabel: View {
             // Working dots are drawn at their dimmest; MenuBarPulseAnimator fades a full-strength
             // copy in and out on top of them.
             workingAlpha: MenuBarPulseAnimator.reduceMotion ? 1 : Self.pulseMinAlpha,
+            workingColor: workingDotStyle.color ?? .systemBlue,
             useRedYellowMode: useRedYellowMode,
             usagePct: showRing ? usagePct : nil
         ) {
@@ -474,15 +477,16 @@ struct MenuBarLabel: View {
     static func renderDotsImage(
         approval: Int, waiting: Int, working: Int,
         workingAlpha: CGFloat,
+        workingColor: NSColor = .systemBlue,
         useRedYellowMode: Bool,
         usagePct: CGFloat? = nil
     ) -> NSImage? {
         // Build dot list: most urgent first.
-        // Red (approval) and green (waiting) need the user; blue (working) pulses via workingAlpha.
+        // Red (approval) and green (waiting) need the user; working dots pulse via workingAlpha.
         var dots: [NSColor] = []
         for _ in 0..<approval { dots.append(.systemRed) }
         for _ in 0..<waiting { dots.append(.systemGreen) }
-        for _ in 0..<working { dots.append(.systemBlue.withAlphaComponent(workingAlpha)) }
+        for _ in 0..<working { dots.append(workingColor.withAlphaComponent(workingAlpha)) }
         guard !dots.isEmpty else { return nil }
 
         let capped = dots.prefix(maxDots)
@@ -566,6 +570,7 @@ final class MenuBarPulseAnimator {
     private struct Layout: Equatable {
         let firstWorkingIndex: Int
         let workingDots: Int
+        let style: WorkingDotStyle
         let imageWidth: CGFloat
         let buttonSize: CGSize
     }
@@ -587,7 +592,9 @@ final class MenuBarPulseAnimator {
     }
 
     private func sync() {
+        let style = WorkingDotStyle.current()
         guard let appState, appState.workingCount > 0, !Self.reduceMotion,
+            let color = style.color,
             let button = Self.statusBarButton()
         else {
             removeOverlay()
@@ -607,6 +614,7 @@ final class MenuBarPulseAnimator {
         let newLayout = Layout(
             firstWorkingIndex: firstWorking,
             workingDots: total - firstWorking,
+            style: style,
             imageWidth: dotsWidth + ringExtra,
             buttonSize: button.bounds.size
         )
@@ -625,7 +633,7 @@ final class MenuBarPulseAnimator {
                 x: originX + CGFloat(index) * step, y: dotY,
                 width: MenuBarLabel.dotSize, height: MenuBarLabel.dotSize)
             dot.cornerRadius = MenuBarLabel.dotSize / 2
-            dot.backgroundColor = NSColor.systemBlue.cgColor
+            dot.backgroundColor = color.cgColor
             view.layer?.addSublayer(dot)
         }
 

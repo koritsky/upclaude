@@ -223,4 +223,26 @@ struct ModelsTests {
         )
         #expect(session.contextSnapshots == nil)
     }
+
+    // MARK: - WorkingDotStyle
+
+    @Test("WorkingDotStyle reads the stored style and falls back to blue")
+    func workingDotStyleCurrent() throws {
+        let suite = "WorkingDotStyleTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(WorkingDotStyle.current(in: defaults) == .blue)
+        defaults.set("orange", forKey: WorkingDotStyle.storageKey)
+        #expect(WorkingDotStyle.current(in: defaults) == .orange)
+        defaults.set("bogus", forKey: WorkingDotStyle.storageKey)
+        #expect(WorkingDotStyle.current(in: defaults) == .blue)
+    }
+
+    @Test("WorkingDotStyle only the hidden style has no color")
+    func workingDotStyleColor() {
+        #expect(WorkingDotStyle.blue.color != nil)
+        #expect(WorkingDotStyle.orange.color != nil)
+        #expect(WorkingDotStyle.hidden.color == nil)
+    }
 }

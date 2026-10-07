@@ -20,7 +20,7 @@ All colors are semantic SwiftUI values — they adapt automatically to light/dar
 
 | Status | Color | Used in |
 |--------|-------|---------|
-| Working / Pending | `.blue` | StatusDot, StatusPill, subagent dots, menu bar dot (pulsing) |
+| Working / Pending | `.blue` | StatusDot, StatusPill, subagent dots, menu bar dot (pulsing; color configurable, see Menu Bar) |
 | Approve | `.red` | StatusDot, StatusPill, menu bar dot |
 | Your turn (waiting) | `.green` | StatusDot, StatusPill, menu bar dot |
 | Inactive (abandoned) | `.gray` at 40% opacity | StatusDot |
@@ -67,14 +67,16 @@ The menu bar icon adapts based on session state:
 
 **Idle (no active sessions)**: `apple.terminal` SF Symbol (template mode). If usage is above threshold, shows a usage ring instead.
 
-**Active sessions**: One colored dot per session, ordered by urgency (red → green → blue). No text, no icons — just dots. Blue "working" dots pulse so they read as activity and stay noticeable on any wallpaper.
+**Active sessions**: One colored dot per session, ordered by urgency (red → green → blue). No text, no icons — just dots. "Working" dots pulse so they read as activity and stay noticeable on any wallpaper.
+
+**Working dot style** (Settings → General → Appearance → "Menu bar dot for working sessions", `workingDotStyle`, default Blue): Blue (`.systemBlue`), Orange (Claude orange `#D97757`), or None. With None, working sessions get no dot and no pulse — only approve/your-turn dots show, and the idle icon (or usage ring) shows when every active session is working. The setting affects the menu bar only; StatusDot, StatusPill, and the rest of the panel stay `.blue`.
 
 | Property | Value |
 |----------|-------|
 | Dot size | 8pt diameter |
 | Dot spacing | 4pt between dots |
 | Max dots | 8 (capped) |
-| Dot colors | `.systemRed` (approve), `.systemGreen` (your turn), `.systemBlue` (working, pulsing) |
+| Dot colors | `.systemRed` (approve), `.systemGreen` (your turn), `.systemBlue` or `#D97757` per working dot style (working, pulsing) |
 | Template mode | `false` when dots shown (preserves color) |
 | Usage ring | 14pt diameter, 2.5pt stroke, appended after dots if above threshold |
 
