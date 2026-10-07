@@ -39,16 +39,15 @@ struct AppStateTests {
         #expect(state.waitingCount == 2)
     }
 
-    @Test("workingCount counts working and pending_waiting sessions")
+    @Test("workingCount counts only working sessions")
     func workingCount() {
         let state = AppState()
         state.sessions = [
             AgentSession(sessionId: "1", cwd: "/a", projectName: "a", status: .working, isHookTracked: true),
-            AgentSession(sessionId: "2", cwd: "/b", projectName: "b", status: .pendingWaiting, isHookTracked: true),
+            AgentSession(sessionId: "2", cwd: "/b", projectName: "b", status: .needsApproval, isHookTracked: true),
             AgentSession(sessionId: "3", cwd: "/c", projectName: "c", status: .waiting, isHookTracked: true),
         ]
-        // pending_waiting displays as working
-        #expect(state.workingCount == 2)
+        #expect(state.workingCount == 1)
     }
 
     @Test("activeSessions excludes unknown and abandoned")

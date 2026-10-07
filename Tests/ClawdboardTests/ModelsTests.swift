@@ -8,32 +8,24 @@ struct ModelsTests {
 
     // MARK: - AgentStatus
 
-    @Test("AgentStatus sort order: waiting < pendingWaiting < working < unknown")
+    @Test("AgentStatus sort order: needsApproval < waiting < working < unknown < abandoned")
     func statusSortOrder() {
-        #expect(AgentStatus.waiting.sortOrder < AgentStatus.pendingWaiting.sortOrder)
-        #expect(AgentStatus.pendingWaiting.sortOrder < AgentStatus.working.sortOrder)
+        #expect(AgentStatus.needsApproval.sortOrder < AgentStatus.waiting.sortOrder)
+        #expect(AgentStatus.waiting.sortOrder < AgentStatus.working.sortOrder)
         #expect(AgentStatus.working.sortOrder < AgentStatus.unknown.sortOrder)
+        #expect(AgentStatus.unknown.sortOrder < AgentStatus.abandoned.sortOrder)
     }
 
     @Test("AgentStatus display labels")
     func statusDisplayLabels() {
         #expect(AgentStatus.working.displayLabel == "Working")
-        #expect(AgentStatus.pendingWaiting.displayLabel == "Working")  // Shows as working
+        #expect(AgentStatus.needsApproval.displayLabel == "Approve")
         #expect(AgentStatus.waiting.displayLabel == "Your turn")
         #expect(AgentStatus.unknown.displayLabel == "Unknown")
+        #expect(AgentStatus.abandoned.displayLabel == "Inactive")
     }
 
     // MARK: - AgentSession
-
-    @Test("AgentSession displayStatus hides pendingWaiting")
-    func displayStatus() {
-        let session = AgentSession(
-            sessionId: "1", cwd: "/a", projectName: "a", status: .pendingWaiting, isHookTracked: true)
-        #expect(session.displayStatus == .working)
-
-        let waiting = AgentSession(sessionId: "2", cwd: "/b", projectName: "b", status: .waiting, isHookTracked: true)
-        #expect(waiting.displayStatus == .waiting)
-    }
 
     @Test("formattedContext formats percentage correctly")
     func formattedContext() {
