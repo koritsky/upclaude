@@ -360,6 +360,8 @@ Shown when no sessions exist.
 | Footer padding | 12pt H, 8pt V |
 | Usage limits padding | 12pt H, 8pt V |
 | Stats-to-sessions gap | 8pt (Spacer below usage limits) |
+| Sessions list height (menu bar panel) | Fits content, capped at 60% of the screen's visible height; scrolls beyond that |
+| Sessions list height (detached window) | Fills the window; scrolls when content overflows |
 | Sessions scroll top padding | 10pt (inside ScrollView) |
 | Sessions scroll fade | 8pt linear gradient mask (clear → black) at top |
 | Sessions list padding | 8pt H, 10pt top, 4pt bottom |

@@ -7,7 +7,11 @@ import SwiftUI
 public struct SessionsContent: View {
     @Environment(AppState.self) private var appState
 
-    public init() {}
+    private let fitsContent: Bool
+
+    public init(fitsContent: Bool = false) {
+        self.fitsContent = fitsContent
+    }
 
     public var body: some View {
         if let limits = appState.usageLimits {
@@ -53,7 +57,7 @@ public struct SessionsContent: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 24)
         } else {
-            SessionsTab()
+            SessionsTab(fitsContent: fitsContent)
         }
     }
 }
@@ -77,7 +81,7 @@ public struct PanelView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 6)
 
-            SessionsContent()
+            SessionsContent(fitsContent: true)
 
             Divider()
 
