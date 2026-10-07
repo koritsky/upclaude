@@ -18,7 +18,7 @@ import signal
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -526,7 +526,9 @@ def _resolve_active_tools(
                 if proc_tree is None:
                     proc_tree = _get_process_tree()
                 if _is_command_running(cmd, session_pid, proc_tree):
-                    _watcher_log(f"approved {session_id[:8]} tool={tool_use_id} cmd={cmd[:60]}")
+                    _watcher_log(
+                        f"approved {session_id[:8]} tool={tool_use_id} cmd={cmd[:60]}"
+                    )
                     flipped_ids.append(tool_use_id)
 
     if not flipped_ids:
@@ -606,10 +608,6 @@ def _age_seconds(iso_timestamp: str) -> float:
         return 9999
 
 
-
-
-
-
 def _get_process_tree() -> dict[int, tuple[int, str]]:
     """Return {pid: (ppid, args)} for all processes. Single ps call."""
     try:
@@ -654,7 +652,7 @@ def _cleanup_session(session_id: str, meta_file: Path) -> None:
 
 
 @contextmanager
-def _session_lock(session_id: str) -> Iterator[None]:
+def _session_lock(session_id: str) -> Generator[None, None, None]:
     """Exclusive lock on a session's state file. Held for <10ms typically."""
     lock_path = SESSIONS_DIR / f"{session_id}.lock"
     fd = open(lock_path, "w")
