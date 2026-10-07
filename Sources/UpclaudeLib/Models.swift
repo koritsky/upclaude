@@ -327,6 +327,9 @@ public struct AgentSession: Identifiable, Codable, Equatable {
     /// When the current (or most recent) turn began, i.e. the last prompt was submitted
     public var turnStartedAt: Date?
 
+    /// Home directory of the user running the session, on the machine it runs on
+    public var home: String?
+
     /// Reasoning effort of the most recent turn ("low", "medium", "high", …), if recorded
     public var effort: String?
 
@@ -408,6 +411,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         case turnStartedAt = "turn_started_at"
         case turnEndedAt = "turn_ended_at"
         case effort
+        case home
         case lastPrompt = "last_prompt"
         case lastReply = "last_reply"
         case title
@@ -449,6 +453,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         turnStartedAt: Date? = nil,
         turnEndedAt: Date? = nil,
         effort: String? = nil,
+        home: String? = nil,
         lastPrompt: String? = nil,
         lastReply: String? = nil,
         title: String? = nil,
@@ -488,6 +493,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         self.turnStartedAt = turnStartedAt
         self.turnEndedAt = turnEndedAt
         self.effort = effort
+        self.home = home
         self.lastPrompt = lastPrompt
         self.lastReply = lastReply
         self.title = title
@@ -530,6 +536,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         turnStartedAt = try c.decodeIfPresent(Date.self, forKey: .turnStartedAt)
         turnEndedAt = try c.decodeIfPresent(Date.self, forKey: .turnEndedAt)
         effort = try c.decodeIfPresent(String.self, forKey: .effort)
+        home = try c.decodeIfPresent(String.self, forKey: .home)
         lastPrompt = try c.decodeIfPresent(String.self, forKey: .lastPrompt)
         lastReply = try c.decodeIfPresent(String.self, forKey: .lastReply)
         title = try c.decodeIfPresent(String.self, forKey: .title)

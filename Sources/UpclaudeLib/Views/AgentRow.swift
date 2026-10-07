@@ -291,32 +291,16 @@ public struct AgentRow: View {
         }
     }
 
-    /// Second line of the row: where it runs, its status and for how long, and what it is about.
+    /// Second line of the row: what the session is about. Its status is the mark at the start
+    /// of the row, and where it runs is in the group header, so neither is repeated here.
     private var statusLine: some View {
-        HStack(spacing: 4) {
-            if let host = session.remoteHost {
-                Image(systemName: "network")
-                    .font(.caption2)
-                Text(host)
-                Text("·")
-            }
-            Text(session.status.displayLabel)
-            // Redrawn every 30s so the duration keeps counting without new data.
-            TimelineView(.periodic(from: .now, by: 30)) { context in
-                if let duration = session.statusDurationText(now: context.date) {
-                    Text("· \(duration)")
-                }
-            }
-            if let summary = session.promptSummary {
-                Text("·")
-                Text(summary)
-                    .truncationMode(.tail)
-                    .layoutPriority(-1)
-            }
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .lineLimit(1)
+        // A session with no prompt yet falls back to its branch, then its status, so the
+        // line is never empty.
+        Text(session.promptSummary ?? session.gitBranch ?? session.status.displayLabel)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
     }
 
     private var focusLabel: String {

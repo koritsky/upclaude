@@ -264,7 +264,7 @@ Single session row. Full row is the primary click target (Fitts's Law).
 
 **Title**: `.system(.body, weight: .medium)`. Single line, truncated. Shows AI-generated kebab-case slug title (e.g. `api-refactor`, `auth-module`, `docs-update`) when available, otherwise a placeholder slug like `new-session` (stable per session ID).
 
-**Status line**: `.caption`, `.secondary`, dot-separated, one line. Order: remote host icon + name, status label, how long the session has been in that status (`now`, `12m`, `1h 5m`, `2d 3h`; recounted every 30s), the most recent prompt in quotes. The prompt truncates first. The branch is in the expanded details, not here.
+**Status line**: `.caption`, `.secondary`, one line: the most recent prompt in quotes, truncated at the tail. Nothing else — the status is the StatusMark at the start of the row, and the machine and directory are in the group header. A session with no prompt yet shows its branch, or failing that its status label, so the line is never empty. The branch is otherwise in the expanded details.
 
 **Widgets**: the Sparkline is shown only with at least two context snapshots in its window, and the PRStatusIcon only when there is a pull request or session commits; otherwise they would be an empty baseline and an empty dashed box. With neither PR nor commits, uncommitted changes show as a bare 6pt `.blue` dot.
 
@@ -322,7 +322,7 @@ Key-value pair in expanded detail grid.
 ### Section Headers (Collapsible)
 **File**: `Sources/UpclaudeLib/Views/SessionsTab.swift`
 
-Group headers for sessions by project name. For GitHub repos, the org prefix is stripped (e.g., "acme/my-app" → "MY-APP"). Tapping the header toggles collapse/expand of the group.
+Group headers for sessions by project, machine, and working directory. For GitHub repos, the org prefix is stripped (e.g., "acme/my-app" → "MY-APP"). The header then says where those sessions work: `~/code/my-app` on this machine, `host:~/code/my-app` on a remote one. The home directory is shortened to `~` on either; a remote session reports its own home, and until it has (hook not yet updated) its path is shown in full. The same repo in two directories or on two machines gets a header for each. Tapping the header toggles collapse/expand of the group.
 
 | Property | Value |
 |----------|-------|
@@ -330,6 +330,7 @@ Group headers for sessions by project name. For GitHub repos, the org prefix is 
 | Color | `.secondary` |
 | Case | `.uppercase` |
 | Padding | 8pt leading, 4pt trailing, 10pt top (except first group) |
+| Location | After the name, 8pt gap, `.caption.monospaced()`, `.tertiary`, not uppercased (paths and host names are case-sensitive), one line, middle-truncated, full text in the tooltip |
 | Chevron | `chevron.right` (collapsed) / `chevron.down` (expanded), 8pt system, `.semibold`, `.tertiary` |
 | Chevron-to-text spacing | 4pt |
 | Collapse animation | 0.15s ease-in-out |
@@ -410,7 +411,7 @@ Shown when no sessions exist.
 | `doc.on.doc` | Copy session ID (expanded detail, context menu) | `.caption2` |
 | `pin` / `pin.fill` | Open / close the floating window (footer) | `.caption` |
 | `chevron.right` / `chevron.down` | Section collapse toggle | 8pt system, `.semibold` |
-| `network` | Remote host indicator | `.caption2` |
+| `network` | Remote Hosts tab | Settings |
 | `gearshape` | Settings menu | `.caption` |
 | `speaker.wave.2` | Preview alert sound | Settings |
 | `arrow.clockwise` | Refresh usage (footer) | `.caption` |

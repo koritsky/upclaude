@@ -249,30 +249,6 @@ struct ModelsTests {
         #expect(session.modelAndEffort == "Opus 5.5 · medium")
     }
 
-    @Test("status duration counts from when the session entered its status")
-    func statusDuration() {
-        let now = Date(timeIntervalSince1970: 1_000_000)
-        var session = AgentSession(
-            sessionId: "1", cwd: "/a", projectName: "a", status: .waiting, isHookTracked: true)
-        #expect(session.statusDurationText(now: now) == nil)
-
-        session.turnEndedAt = now.addingTimeInterval(-12 * 60)
-        #expect(session.statusDurationText(now: now) == "12m")
-
-        session.status = .working
-        session.turnStartedAt = now.addingTimeInterval(-20)
-        #expect(session.statusDurationText(now: now) == "now")
-
-        session.status = .needsApproval
-        session.activeTools = [
-            "a": ActiveTool(status: .needsApproval, addedAt: now.addingTimeInterval(-65 * 60)),
-            "b": ActiveTool(status: .working, addedAt: now.addingTimeInterval(-9000)),
-        ]
-        #expect(session.statusDurationText(now: now) == "1h 5m")
-
-        #expect(AgentSession.compactDuration(51 * 3600) == "2d 3h")
-    }
-
     @Test("promptSummary quotes the latest prompt and shortSessionId keeps eight characters")
     func promptSummaryAndShortId() {
         var session = AgentSession(

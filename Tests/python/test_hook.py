@@ -274,6 +274,7 @@ class TestEventHandlers:
         state = json.loads(state_file.read_text())
         assert state["session_id"] == "s1"
         assert state["status"] == "waiting"
+        assert state["home"] == str(Path.home())
         assert state["active_tools"] == {}
         assert state["agent_working"] is False
 
