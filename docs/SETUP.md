@@ -55,6 +55,8 @@ The AutoLaunch script runs in the background inside iTerm2, polling `~/.upclaude
 
 **Inside zellij**: a multiplexer's server is detached from the pane's shell, so the process-tree match finds nothing. The hook records the session's zellij session and pane instead. On "Focus", the app finds the zellij client currently attached to that session, selects the iTerm2 pane that owns its terminal, and runs `zellij action focus-pane-id` to switch to the right tab and pane. This keeps working after the iTerm2 tab is closed and zellij is re-attached in another one. If no client is attached, it falls back to the pane named by `ITERM_SESSION_ID` at session start. tmux is not supported. Known limitation: right after re-attaching zellij, the first "Focus" brings the iTerm2 pane forward but may not switch the zellij tab until you have interacted with zellij once. Failed focus attempts are logged to `~/.upclaude/focus.log`.
 
+**Sessions on a remote host**: the remote machine can't name your iTerm2 pane, so "Focus" looks for the local `ssh <host>` client that has a terminal and selects the iTerm2 pane running it (the newest one, if there are several). If the session runs inside zellij on the remote host, it then runs `zellij action focus-pane-id` there over ssh. Without an open `ssh <host>` pane there is nothing to focus; the attempt is logged to `~/.upclaude/focus.log`. An ssh client that itself runs inside a local zellij is not found.
+
 ---
 
 ## Pathway 2: VS Code + Native macOS Tabs

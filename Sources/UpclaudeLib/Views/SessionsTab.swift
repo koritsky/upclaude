@@ -69,7 +69,7 @@ public struct SessionsTab: View {
 
                     if !isCollapsed {
                         ForEach(group.sessions) { session in
-                            let hasiTerm2 = session.iterm2SessionId != nil
+                            let hasiTerm2 = appState.canFocusInTerminal(session)
                             let lockInfo = appState.ideLockInfo(for: session)
                             let hasIDE = lockInfo != nil
 

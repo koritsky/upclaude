@@ -128,3 +128,55 @@ def test_zellij_needs_client_terminal_and_focused_pane(focus, monkeypatch):
     # Looking at another iTerm2 pane entirely.
     monkeypatch.setattr(focus, "_run", _fake_run("/dev/ttys001|ANY\n", ps))
     assert focus.is_focused("STALE", zellij) is False
+
+
+SSH_PS = """\
+70566 ttys005  ssh berghain
+70600 ttys007  ssh -p 2222 me@berghain
+70700 ??       /usr/bin/ssh -o BatchMode=yes berghain python3 -u -c watch
+70800 ttys009  ssh otherhost
+70900 ttys010  vim berghain
+"""
+
+
+def test_ssh_client_tty_picks_newest_interactive_client(focus, monkeypatch):
+    monkeypatch.setattr(focus, "_run", lambda args: SSH_PS)
+    assert focus.ssh_client_tty("berghain") == "/dev/ttys007"
+    assert focus.ssh_client_tty("otherhost") == "/dev/ttys009"
+    assert focus.ssh_client_tty("nowhere") is None
+
+
+def test_remote_session_is_focused_through_the_ssh_pane(focus, monkeypatch):
+    calls = []
+
+    def run(args):
+        calls.append(args)
+        if args[0] == "osascript":
+            return "/dev/ttys007|ANY\n"
+        if args[0] == "ps":
+            return SSH_PS
+        if args[0] == "ssh":
+            return LIST_CLIENTS
+        return ""
+
+    monkeypatch.setattr(focus, "_run", run)
+    options = {
+        "--ssh-host": "berghain",
+        "--zellij-session": "main",
+        "--zellij-pane": "terminal_10",
+        "--zellij-bin": "/bin/zellij",
+    }
+    assert focus.is_focused("-", options) is True
+    # zellij is asked on the remote host, not locally.
+    remote = [c for c in calls if c[0] == "ssh"][0]
+    assert remote[-2:] == ["berghain", "/bin/zellij --session main action list-clients"]
+
+    assert focus.is_focused("-", {**options, "--zellij-pane": "terminal_3"}) is False
+    assert focus.is_focused("-", {"--ssh-host": "otherhost"}) is False
+
+
+def test_focus_fails_without_a_local_ssh_client(focus, monkeypatch, tmp_path):
+    monkeypatch.setattr(focus, "LOG_FILE", tmp_path / "focus.log")
+    monkeypatch.setattr(focus, "_run", lambda args: "")
+    assert focus.focus("-", None, "berghain") == 1
+    assert "no local ssh client" in (tmp_path / "focus.log").read_text()
