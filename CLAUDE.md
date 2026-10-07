@@ -1,4 +1,4 @@
-# Clawdboard
+# Upclaude
 
 Native macOS menu bar app (SwiftUI) for monitoring Claude Code agent sessions.
 
@@ -7,7 +7,7 @@ Native macOS menu bar app (SwiftUI) for monitoring Claude Code agent sessions.
 ```bash
 mise run setup    # Install tools and git hooks
 mise run build    # swift build
-mise run run      # swift run Clawdboard
+mise run run      # swift run Upclaude
 mise run test     # swift test
 mise run format   # Auto-fix formatting
 mise run lint     # Check formatting + lint
@@ -22,9 +22,9 @@ mise run lint     # Check formatting + lint
 
 ## Architecture
 
-- **SPM library + executable split**: `ClawdboardLib` (all code) + `Clawdboard` (thin `@main` entry point) + `ClawdboardTests` (imports ClawdboardLib). This is required because SPM executable targets can't be imported by test targets.
+- **SPM library + executable split**: `UpclaudeLib` (all code) + `Upclaude` (thin `@main` entry point) + `UpclaudeTests` (imports UpclaudeLib). This is required because SPM executable targets can't be imported by test targets.
 - **Swift 5 language mode** in Swift 6 toolchain (avoids strict concurrency fights for a PoC).
-- **Hooks-first session discovery**: Claude hooks write state files to `~/.clawdboard/sessions/`. The Swift app just reads JSON — all JSONL parsing, cost calculation, and token counting happens in the hook script (`Sources/ClawdboardLib/Resources/clawdboard-hook.py`).
+- **Hooks-first session discovery**: Claude hooks write state files to `~/.upclaude/sessions/`. The Swift app just reads JSON — all JSONL parsing, cost calculation, and token counting happens in the hook script (`Sources/UpclaudeLib/Resources/upclaude-hook.py`).
 - **Single `@Observable` AppState** owned by the App struct, distributed via `.environment()`.
 - **Status is derived in the hook** from `active_tools` / `agent_working`; `Stop` does a full reset to `waiting` (no debounce). **Ghost filtering** in `SessionProcessor` hides sessions that never produced output (30s if never updated, 5min idle).
 
@@ -42,7 +42,7 @@ mise run lint     # Check formatting + lint
 
 ## Key Paths
 
-- `Sources/ClawdboardLib/Resources/clawdboard-hook.py` — Python script installed as Claude hook
-- `Sources/ClawdboardLib/` — all library code (models, state, views, discovery)
-- `Sources/Clawdboard/ClawdboardApp.swift` — app entry point
+- `Sources/UpclaudeLib/Resources/upclaude-hook.py` — Python script installed as Claude hook
+- `Sources/UpclaudeLib/` — all library code (models, state, views, discovery)
+- `Sources/Upclaude/UpclaudeApp.swift` — app entry point
 - `scripts/bundle.sh` — creates `.app` bundle from release binary

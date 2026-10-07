@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import ClawdboardLib
+@testable import UpclaudeLib
 
 @Suite("Models")
 struct ModelsTests {

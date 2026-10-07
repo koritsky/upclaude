@@ -11,8 +11,8 @@ description = "Build the project"
 run = "swift build"
 
 [tasks.run]
-description = "Build and run Clawdboard"
-run = "swift run Clawdboard"
+description = "Build and run Upclaude"
+run = "swift run Upclaude"
 
 [tasks.dev]
 description = "Watch mode: auto-rebuild and restart on code changes"
@@ -20,13 +20,13 @@ run = """
 #!/bin/bash
 set -euo pipefail
 
-# Kill any existing watchexec/Clawdboard processes to prevent duplicates
-pkill -f 'watchexec.*Clawdboard' 2>/dev/null || true
-pkill -f 'watchexec.*clawdboard' 2>/dev/null || true
-pkill -f '.build/.*Clawdboard' 2>/dev/null || true
+# Kill any existing watchexec/Upclaude processes to prevent duplicates
+pkill -f 'watchexec.*Upclaude' 2>/dev/null || true
+pkill -f 'watchexec.*upclaude' 2>/dev/null || true
+pkill -f '.build/.*Upclaude' 2>/dev/null || true
 sleep 0.5
 
-exec watchexec --restart --exts swift,py --watch Sources/ --shell=bash -- 'swift build && .build/debug/Clawdboard'
+exec watchexec --restart --exts swift,py --watch Sources/ --shell=bash -- 'swift build && .build/debug/Upclaude'
 """
 
 [tasks.test]
@@ -54,7 +54,7 @@ run = """
 #!/bin/bash
 set -euo pipefail
 swift format format --in-place --recursive Sources/ Tests/
-ruff format Sources/ClawdboardLib/Resources/ scripts/ Tests/python
+ruff format Sources/UpclaudeLib/Resources/ scripts/ Tests/python
 """
 
 [tasks.lint]
@@ -68,9 +68,9 @@ if [ -d /Applications/Xcode.app ]; then
 else
     echo "⚠ swiftlint skipped (requires Xcode, not just Command Line Tools)"
 fi
-ruff check Sources/ClawdboardLib/Resources/ scripts/
-ruff format --check Sources/ClawdboardLib/Resources/ scripts/
-uvx ty@0.0.85 check Sources/ClawdboardLib/Resources/ scripts/
+ruff check Sources/UpclaudeLib/Resources/ scripts/
+ruff format --check Sources/UpclaudeLib/Resources/ scripts/
+uvx ty@0.0.85 check Sources/UpclaudeLib/Resources/ scripts/
 """
 
 [tasks.test-py]

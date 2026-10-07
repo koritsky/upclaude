@@ -147,7 +147,7 @@ public struct SettingsView: View {
                     }
                 } message: {
                     Text(
-                        "This removes Clawdboard hooks from ~/.claude/settings.json and deletes session data. Claude Code will not be affected."
+                        "This removes Upclaude hooks from ~/.claude/settings.json and deletes session data. Claude Code will not be affected."
                     )
                 }
             }
@@ -163,7 +163,7 @@ public struct SettingsView: View {
                             Button("Uninstall") { uninstallITerm2() }
                         }
                     }
-                    Text("Enables click-to-focus from Clawdboard to the correct iTerm2 pane")
+                    Text("Enables click-to-focus from Upclaude to the correct iTerm2 pane")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if !ITerm2Installer.isPythonAPIEnabled {
@@ -211,7 +211,7 @@ public struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 }
                 Text(
-                    "Clawdboard monitors Claude Code sessions via hooks installed in ~/.claude/settings.json"
+                    "Upclaude monitors Claude Code sessions via hooks installed in ~/.claude/settings.json"
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

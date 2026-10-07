@@ -3,24 +3,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "Clawdboard",
+    name: "Upclaude",
     platforms: [.macOS(.v26)],
     targets: [
         .target(
-            name: "ClawdboardLib",
-            path: "Sources/ClawdboardLib",
+            name: "UpclaudeLib",
+            path: "Sources/UpclaudeLib",
             exclude: ["Resources"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
-            name: "Clawdboard",
-            dependencies: ["ClawdboardLib"],
-            path: "Sources/Clawdboard",
+            name: "Upclaude",
+            dependencies: ["UpclaudeLib"],
+            path: "Sources/Upclaude",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
-            name: "ClawdboardTests",
-            dependencies: ["ClawdboardLib"],
+            name: "UpclaudeTests",
+            dependencies: ["UpclaudeLib"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

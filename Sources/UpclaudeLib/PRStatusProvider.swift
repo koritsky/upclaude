@@ -5,7 +5,7 @@ import Foundation
 /// Triggered by `updateTargets()` (called when sessions change via `rebuildSessions()`).
 /// Uses a 30s per-session debounce since PR status changes infrequently.
 ///
-/// Persists cache to `~/.clawdboard/pr-status-cache.json` keyed by `repo:branch`
+/// Persists cache to `~/.upclaude/pr-status-cache.json` keyed by `repo:branch`
 /// so PR status survives app restarts and is shared across sessions on the same branch.
 /// All `gh` commands run off the main thread on `.utility` QoS.
 public class PRStatusProvider {
@@ -14,7 +14,7 @@ public class PRStatusProvider {
 
     private static let cacheFile: URL = {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".clawdboard/pr-status-cache.json")
+            .appendingPathComponent(".upclaude/pr-status-cache.json")
     }()
 
     // MARK: - Callback
@@ -35,7 +35,7 @@ public class PRStatusProvider {
 
     // MARK: - Serial queue protecting all mutable state
 
-    private let queue = DispatchQueue(label: "clawdboard.pr-status-provider", qos: .utility)
+    private let queue = DispatchQueue(label: "upclaude.pr-status-provider", qos: .utility)
 
     // MARK: - Cache (persisted to disk)
 

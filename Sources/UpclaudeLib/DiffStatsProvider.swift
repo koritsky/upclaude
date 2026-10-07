@@ -29,7 +29,7 @@ public class DiffStatsProvider {
 
     // MARK: - Serial queue protecting all mutable state
 
-    private let queue = DispatchQueue(label: "clawdboard.diff-stats-provider", qos: .utility)
+    private let queue = DispatchQueue(label: "upclaude.diff-stats-provider", qos: .utility)
 
     // MARK: - In-memory cache (read by AppState during mergeGitInfo)
 

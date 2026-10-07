@@ -6,7 +6,7 @@
 #   SKIP_BUILD   — set to 1 to skip the build step (CI builds separately)
 set -euo pipefail
 
-APP_NAME="Clawdboard"
+APP_NAME="Upclaude"
 APP_VERSION="${APP_VERSION:-0.1.0}"
 BUILD_DIR="${BUILD_DIR:-.build/release}"
 APP_DIR="${APP_NAME}.app"
@@ -28,7 +28,7 @@ cp "${BUILD_DIR}/${APP_NAME}" "${MACOS_DIR}/${APP_NAME}"
 
 # Copy resource scripts into Contents/Resources/ so Bundle.main can find them.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cp "${SCRIPT_DIR}/../Sources/ClawdboardLib/Resources/"*.py "$RESOURCES_DIR/"
+cp "${SCRIPT_DIR}/../Sources/UpclaudeLib/Resources/"*.py "$RESOURCES_DIR/"
 
 # Copy app icon
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -44,17 +44,17 @@ cat > "${CONTENTS_DIR}/Info.plist" << PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Clawdboard</string>
+    <string>Upclaude</string>
     <key>CFBundleDisplayName</key>
-    <string>Clawdboard</string>
+    <string>Upclaude</string>
     <key>CFBundleIdentifier</key>
-    <string>com.clawdboard.app</string>
+    <string>com.upclaude.app</string>
     <key>CFBundleVersion</key>
     <string>${APP_VERSION}</string>
     <key>CFBundleShortVersionString</key>
     <string>${APP_VERSION}</string>
     <key>CFBundleExecutable</key>
-    <string>Clawdboard</string>
+    <string>Upclaude</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleIconFile</key>

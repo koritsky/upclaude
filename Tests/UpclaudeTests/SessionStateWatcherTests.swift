@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import ClawdboardLib
+@testable import UpclaudeLib
 
 @Suite("SessionStateWatcher")
 struct SessionStateWatcherTests {
@@ -10,7 +10,7 @@ struct SessionStateWatcherTests {
     func readsStateFiles() throws {
         // Create a temp directory with test state files
         let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("clawdboard-test-\(UUID().uuidString)")
+            .appendingPathComponent("upclaude-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmpDir) }
 
@@ -47,7 +47,7 @@ struct SessionStateWatcherTests {
     @Test("readAllSessions skips non-json files")
     func skipsNonJSON() throws {
         let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("clawdboard-test-\(UUID().uuidString)")
+            .appendingPathComponent("upclaude-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmpDir) }
 
@@ -68,7 +68,7 @@ struct SessionStateWatcherTests {
     @Test("readAllSessions handles empty directory")
     func handlesEmptyDir() throws {
         let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("clawdboard-test-\(UUID().uuidString)")
+            .appendingPathComponent("upclaude-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmpDir) }
 

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Polls remote machines via SSH to read their ~/.clawdboard/sessions/*.json state files.
+/// Polls remote machines via SSH to read their ~/.upclaude/sessions/*.json state files.
 /// Each enabled RemoteHost is polled on its own timer. Results are merged with local sessions
 /// in AppState.
 public class RemoteSessionWatcher {
@@ -55,7 +55,7 @@ public class RemoteSessionWatcher {
                 "-o", "ConnectTimeout=5",
                 "-o", "BatchMode=yes",
                 host,
-                "rm -f ~/.clawdboard/sessions/\(sessionId).json",
+                "rm -f ~/.upclaude/sessions/\(sessionId).json",
             ]
             task.standardOutput = FileHandle.nullDevice
             task.standardError = FileHandle.nullDevice
@@ -95,7 +95,7 @@ public class RemoteSessionWatcher {
             hostId,
             // Read all session JSON files, output as a JSON array.
             // If no files exist, outputs "[]".
-            "python3 -c \"\nimport json, glob, os\nfiles = glob.glob(os.path.expanduser('~/.clawdboard/sessions/*.json'))\nsessions = []\nfor f in files:\n    try:\n        sessions.append(json.load(open(f)))\n    except: pass\nprint(json.dumps(sessions))\n\"",
+            "python3 -c \"\nimport json, glob, os\nfiles = glob.glob(os.path.expanduser('~/.upclaude/sessions/*.json'))\nsessions = []\nfor f in files:\n    try:\n        sessions.append(json.load(open(f)))\n    except: pass\nprint(json.dumps(sessions))\n\"",
         ]
 
         let pipe = Pipe()
@@ -150,7 +150,7 @@ public class RemoteSessionWatcher {
             "-o", "ConnectTimeout=5",
             "-o", "BatchMode=yes",
             host,
-            "test -f ~/.clawdboard/hooks/clawdboard-hook.py && echo installed || echo missing",
+            "test -f ~/.upclaude/hooks/upclaude-hook.py && echo installed || echo missing",
         ]
 
         let pipe = Pipe()
@@ -191,11 +191,11 @@ public class RemoteSessionWatcher {
         }
 
         let installCommand = """
-            mkdir -p ~/.clawdboard/hooks ~/.clawdboard/sessions && \
-            cat > ~/.clawdboard/hooks/clawdboard-hook.py << 'CLAWDBOARD_HOOK_EOF'
+            mkdir -p ~/.upclaude/hooks ~/.upclaude/sessions && \
+            cat > ~/.upclaude/hooks/upclaude-hook.py << 'UPCLAUDE_HOOK_EOF'
             \(hookScript)
-            CLAWDBOARD_HOOK_EOF
-            chmod 755 ~/.clawdboard/hooks/clawdboard-hook.py && \
+            UPCLAUDE_HOOK_EOF
+            chmod 755 ~/.upclaude/hooks/upclaude-hook.py && \
             python3 -c "
             import json, os
             settings_path = os.path.expanduser('~/.claude/settings.json')
@@ -206,13 +206,13 @@ public class RemoteSessionWatcher {
                     settings = json.load(open(settings_path))
                 except: pass
             hooks = settings.get('hooks', {})
-            hook_cmd = 'python3 ~/.clawdboard/hooks/clawdboard-hook.py'
+            hook_cmd = 'python3 ~/.upclaude/hooks/upclaude-hook.py'
             events = ['SessionStart','PostToolUse','PermissionRequest','Stop','UserPromptSubmit','SessionEnd','SubagentStart','SubagentStop']
             for event in events:
-                entries = [e for e in hooks.get(event, []) if not any('clawdboard' in h.get('command','') for h in e.get('hooks',[]))]
+                entries = [e for e in hooks.get(event, []) if not any('upclaude' in h.get('command','') for h in e.get('hooks',[]))]
                 entries.append({'matcher':'*','hooks':[{'type':'command','command':hook_cmd,'timeout':10}]})
                 hooks[event] = entries
-            notifs = [e for e in hooks.get('Notification', []) if not any('clawdboard' in h.get('command','') for h in e.get('hooks',[]))]
+            notifs = [e for e in hooks.get('Notification', []) if not any('upclaude' in h.get('command','') for h in e.get('hooks',[]))]
             for m in ['idle_prompt','permission_prompt']:
                 notifs.append({'matcher':m,'hooks':[{'type':'command','command':hook_cmd+' '+m,'timeout':10}]})
             hooks['Notification'] = notifs

@@ -9,11 +9,11 @@ public enum ITerm2Installer {
 
     private static let focusScriptDir: URL = {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".clawdboard")
+            .appendingPathComponent(".upclaude")
     }()
 
     private static var autoLaunchDest: URL {
-        autoLaunchDir.appendingPathComponent("clawdboard.py")
+        autoLaunchDir.appendingPathComponent("upclaude.py")
     }
 
     private static var focusScriptDest: URL {
@@ -67,7 +67,7 @@ public enum ITerm2Installer {
         // Kill any running instances
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        task.arguments = ["-f", "clawdboard.py"]
+        task.arguments = ["-f", "upclaude.py"]
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice
         try? task.run()
@@ -78,7 +78,7 @@ public enum ITerm2Installer {
     public static func launchScript() {
         let script = """
             tell application "iTerm2"
-                launch API script named "clawdboard.py"
+                launch API script named "upclaude.py"
             end tell
             """
         let task = Process()

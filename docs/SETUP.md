@@ -1,37 +1,16 @@
-# Getting the Most Out of Clawdboard
+# Getting the Most Out of Upclaude
 
-Clawdboard monitors your Claude Code sessions from the macOS menu bar. There are three ways to get started:
-
-### Option 1: Homebrew
+Upclaude monitors your Claude Code sessions from the macOS menu bar. It is a fork of [Clawdboard](https://github.com/apocohq/clawdboard); build it from source:
 
 ```bash
-brew install apocohq/clawdboard/clawdboard
-open /Applications/Clawdboard.app
+git clone https://github.com/koritsky/upclaude.git
+cd upclaude
+./scripts/bundle.sh
+cp -R Upclaude.app /Applications/
+open /Applications/Upclaude.app
 ```
 
-The hooks are set up automatically when the app runs for the first time.
-
-To upgrade: `brew upgrade clawdboard`
-
-### Option 2: Build from source
-
-```bash
-git clone https://github.com/apocohq/clawdboard.git
-cd clawdboard
-```
-
-Then open Claude Code and run `/clawdboard:install` — it builds the app, installs hooks, and sets up your IDE.
-
-### Option 3: Plugin marketplace
-
-```
-/plugins marketplace add apocohq/claude-plugins
-/plugins install clawdboard@apoco-plugins
-/reload-plugins
-/clawdboard:install
-```
-
-All three options configure hooks and set up your IDE automatically.
+The hooks are set up automatically when the app runs for the first time. There is no Homebrew cask or Claude Code plugin for Upclaude yet.
 
 The rest of this document explains what gets configured and how to do it manually.
 
@@ -39,9 +18,9 @@ The rest of this document explains what gets configured and how to do it manuall
 
 ## How It Works
 
-Clawdboard uses Claude Code **hooks** to track session state. Each hook event (session start, tool use, stop, etc.) triggers a Python script that writes a JSON state file to `~/.clawdboard/sessions/`. The menu bar app watches that directory and displays live status.
+Upclaude uses Claude Code **hooks** to track session state. Each hook event (session start, tool use, stop, etc.) triggers a Python script that writes a JSON state file to `~/.upclaude/sessions/`. The menu bar app watches that directory and displays live status.
 
-On top of that, there are two IDE-specific integrations that enable the "Focus" button — jumping from Clawdboard directly to the right window/pane.
+On top of that, there are two IDE-specific integrations that enable the "Focus" button — jumping from Upclaude directly to the right window/pane.
 
 ## Pathway 1: Terminal + iTerm2
 
@@ -58,21 +37,21 @@ On top of that, there are two IDE-specific integrations that enable the "Focus" 
 2. **Install integration scripts** (from the repo):
    ```bash
    mkdir -p ~/.config/iterm2/AppSupport/Scripts/AutoLaunch
-   cp Sources/ClawdboardLib/Resources/iterm2-integration.py \
-      ~/.config/iterm2/AppSupport/Scripts/AutoLaunch/clawdboard.py
-   cp Sources/ClawdboardLib/Resources/iterm2-focus.py \
-      ~/.clawdboard/iterm2-focus.py
-   chmod 755 ~/.config/iterm2/AppSupport/Scripts/AutoLaunch/clawdboard.py \
-             ~/.clawdboard/iterm2-focus.py
+   cp Sources/UpclaudeLib/Resources/iterm2-integration.py \
+      ~/.config/iterm2/AppSupport/Scripts/AutoLaunch/upclaude.py
+   cp Sources/UpclaudeLib/Resources/iterm2-focus.py \
+      ~/.upclaude/iterm2-focus.py
+   chmod 755 ~/.config/iterm2/AppSupport/Scripts/AutoLaunch/upclaude.py \
+             ~/.upclaude/iterm2-focus.py
    ```
 
-   Or install from Clawdboard's Settings: **iTerm2 Integration → Install**.
+   Or install from Upclaude's Settings: **iTerm2 Integration → Install**.
 
 3. **Restart iTerm2** so it picks up the AutoLaunch script.
 
 ### How It Works
 
-The AutoLaunch script runs in the background inside iTerm2, polling `~/.clawdboard/sessions/` every 2 seconds. It matches Claude Code processes to iTerm2 panes by walking the process tree, then writes the pane UUID back into the session file. The "Focus" button uses AppleScript to select that pane.
+The AutoLaunch script runs in the background inside iTerm2, polling `~/.upclaude/sessions/` every 2 seconds. It matches Claude Code processes to iTerm2 panes by walking the process tree, then writes the pane UUID back into the session file. The "Focus" button uses AppleScript to select that pane.
 
 ---
 
@@ -96,17 +75,17 @@ The AutoLaunch script runs in the background inside iTerm2, polling `~/.clawdboa
    ```
    Restart VS Code after changing this.
 
-3. **No additional hook setup needed** — the Claude Code VS Code extension automatically creates lock files that Clawdboard reads.
+3. **No additional hook setup needed** — the Claude Code VS Code extension automatically creates lock files that Upclaude reads.
 
 ### How It Works
 
-The Claude Code extension writes lock files to `~/.claude/ide/` with workspace folders and PID. Clawdboard matches each session's working directory to the most specific workspace folder. The "Focus" button runs `code <workspace-path>` to bring the correct window forward. Native macOS tabs let you merge all VS Code windows into one tabbed window (**Window → Merge All Windows**).
+The Claude Code extension writes lock files to `~/.claude/ide/` with workspace folders and PID. Upclaude matches each session's working directory to the most specific workspace folder. The "Focus" button runs `code <workspace-path>` to bring the correct window forward. Native macOS tabs let you merge all VS Code windows into one tabbed window (**Window → Merge All Windows**).
 
 ---
 
 ## Troubleshooting
 
-**Sessions not appearing**: Hooks load at session start — restart running Claude Code sessions. Check `~/.claude/settings.json` has entries containing "clawdboard".
+**Sessions not appearing**: Hooks load at session start — restart running Claude Code sessions. Check `~/.claude/settings.json` has entries containing "upclaude".
 
 **"Focus in iTerm2" missing**: Check Python API is enabled (Settings → General → Magic). Restart iTerm2 after installing scripts.
 

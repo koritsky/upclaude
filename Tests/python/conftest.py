@@ -11,21 +11,21 @@ import pytest
 HOOK_PATH = (
     Path(__file__).parent.parent.parent
     / "Sources"
-    / "ClawdboardLib"
+    / "UpclaudeLib"
     / "Resources"
-    / "clawdboard-hook.py"
+    / "upclaude-hook.py"
 )
 
 
 @pytest.fixture()
 def hook(tmp_sessions):
     """Import the hook module, patching SESSIONS_DIR to use tmp dir."""
-    spec = importlib.util.spec_from_file_location("clawdboard_hook", HOOK_PATH)
+    spec = importlib.util.spec_from_file_location("upclaude_hook", HOOK_PATH)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     # Redirect agent fact files to temp directory
-    mod.SESSIONS_DIR = tmp_sessions
+    mod.SESSIONS_DIR = tmp_sessions  # ty: ignore[unresolved-attribute]
     return mod
 
 

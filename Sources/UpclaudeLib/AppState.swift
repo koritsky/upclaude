@@ -46,7 +46,7 @@ public class AppState {
 
     private let sessionsDir: URL = {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".clawdboard/sessions")
+            .appendingPathComponent(".upclaude/sessions")
     }()
 
     private let ideLockDir: URL = {
@@ -457,7 +457,7 @@ public class AppState {
     public func focusITerm2Session(_ session: AgentSession) {
         guard let uuid = session.iterm2SessionId else { return }
         let focusScript = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".clawdboard/iterm2-focus.py")
+            .appendingPathComponent(".upclaude/iterm2-focus.py")
         guard FileManager.default.fileExists(atPath: focusScript.path) else { return }
         Self.runProcess("/usr/bin/python3", arguments: [focusScript.path, uuid])
     }
@@ -486,7 +486,7 @@ public class AppState {
 
         let cwd = session.cwd
 
-        // Hide Clawdboard so it doesn't overlap the AX click targets.
+        // Hide Upclaude so it doesn't overlap the AX click targets.
         // VS Code handles hiding internally — only when clicking is actually needed.
         if family != .vscode {
             NSApp.hide(nil)
@@ -565,7 +565,7 @@ public class AppState {
             NSApp.unhide(nil)
             // Re-assert floating level on the detached window (unhide resets it).
             for window in NSApp.windows
-            where window.title == "Clawdboard" && window.isVisible {
+            where window.title == "Upclaude" && window.isVisible {
                 window.level = .floating
             }
         }
@@ -684,7 +684,7 @@ public class AppState {
 
         // Write the updated title + user_renamed_tab flag back to the session state file.
         let sessionsDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".clawdboard/sessions")
+            .appendingPathComponent(".upclaude/sessions")
         let stateFile = sessionsDir.appendingPathComponent("\(sessionId).json")
         guard
             var json = try? JSONSerialization.jsonObject(
@@ -744,7 +744,7 @@ public class AppState {
     /// 1. Read the VSCode-generated `aiTitle` from the JSONL transcript
     /// 2. Enable Electron accessibility on the VS Code process
     /// 3. If the session is already active in the frontmost window, return early (no hide)
-    /// 4. Hide Clawdboard, click "Session history", then click the target session
+    /// 4. Hide Upclaude, click "Session history", then click the target session
     private func focusVSCodeSession(sessionId: String, cwd: String, pid: Int, ideName: String) {
         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.3) {
             defer { Self.restoreFloatingWindow() }
@@ -770,7 +770,7 @@ public class AppState {
                 return
             }
 
-            // Session needs switching — hide Clawdboard so it doesn't intercept clicks.
+            // Session needs switching — hide Upclaude so it doesn't intercept clicks.
             DispatchQueue.main.sync { NSApp.hide(nil) }
 
             // Click "Session history" to open the session picker

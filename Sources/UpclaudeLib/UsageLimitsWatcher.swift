@@ -1,7 +1,7 @@
 import Foundation
 
 /// Fetches usage limits from the Claude API using the OAuth token from the macOS Keychain
-/// (falling back to ~/.claude/.credentials.json). Caches results to ~/.clawdboard/usage-limits.json
+/// (falling back to ~/.claude/.credentials.json). Caches results to ~/.upclaude/usage-limits.json
 /// to avoid rate limits across restarts. Polls every 5 minutes.
 public class UsageLimitsWatcher {
     private static let pollInterval: TimeInterval = 300
@@ -10,7 +10,7 @@ public class UsageLimitsWatcher {
     private static let credentialsFile = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/.credentials.json")
     private static let cacheFile = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".clawdboard/usage-limits.json")
+        .appendingPathComponent(".upclaude/usage-limits.json")
 
     private var timer: Timer?
     private let onChange: (UsageLimitsData?) -> Void
@@ -194,7 +194,7 @@ public class UsageLimitsWatcher {
             var request = URLRequest(url: url, timeoutInterval: 10)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-            request.setValue("clawdboard/1.0", forHTTPHeaderField: "User-Agent")
+            request.setValue("upclaude/1.0", forHTTPHeaderField: "User-Agent")
             request.setValue("application/json", forHTTPHeaderField: "Accept")
 
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
