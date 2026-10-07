@@ -498,11 +498,17 @@ public class AppState {
     /// Focus a session in its terminal or IDE, as clicking its row does. Used by notifications.
     public func focusSession(id: String) {
         guard let session = sessions.first(where: { $0.sessionId == id }) else { return }
-        if session.iterm2SessionId != nil {
+        if canFocusInTerminal(session) {
             focusITerm2Session(session)
         } else if ideLockInfo(for: session) != nil {
             focusIDESession(session)
         }
+    }
+
+    /// Whether a click can take the user to the session's terminal pane: a local session
+    /// matched to an iTerm2 pane, or a remote one, reached through the local ssh client.
+    public func canFocusInTerminal(_ session: AgentSession) -> Bool {
+        session.iterm2SessionId != nil || session.remoteHost != nil
     }
 
     public func focusITerm2Session(_ session: AgentSession) {
@@ -516,13 +522,26 @@ public class AppState {
     /// zellij pane if it runs inside zellij. Empty when the session can't be focused this way.
     /// Also used for notification clicks, which run outside the app.
     func terminalFocusCommands(for session: AgentSession) -> [[String]] {
-        guard let uuid = session.iterm2SessionId else { return [] }
         let focusScript = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".upclaude/iterm2-focus.py")
         guard FileManager.default.fileExists(atPath: focusScript.path) else { return [] }
 
+        if let host = session.remoteHost {
+            // A remote session is reached through the pane running `ssh <host>`; a zellij
+            // pane, if any, is focused on the remote side.
+            let focusPane = ["/usr/bin/python3", focusScript.path, "-", "--ssh-host", host]
+            guard let zellij = session.zellij else { return [focusPane] }
+            let remoteFocus = [zellij.bin, "--session", zellij.session, "action", "focus-pane-id", zellij.paneId]
+                .map(NotificationManager.shellQuoted).joined(separator: " ")
+            return [
+                focusPane,
+                ["/usr/bin/ssh"] + RemoteSessionWatcher.sshArguments(host: host, command: remoteFocus),
+            ]
+        }
+
+        guard let uuid = session.iterm2SessionId else { return [] }
         var focusPane = ["/usr/bin/python3", focusScript.path, uuid]
-        guard session.remoteHost == nil, let zellij = session.zellij else { return [focusPane] }
+        guard let zellij = session.zellij else { return [focusPane] }
 
         // Inside zellij the recorded UUID goes stale once the hosting tab is closed, so let the
         // script find the pane through the zellij client that is attached right now.
@@ -537,14 +556,17 @@ public class AppState {
     }
 
     /// Whether the user is already looking at the session: iTerm2 is frontmost and showing
-    /// its pane (and, inside zellij, its zellij pane). Blocks while it asks iTerm2, so call
-    /// it off the main thread. IDE sessions always report false.
+    /// its pane (and, inside zellij, its zellij pane). For a remote session the pane is the one
+    /// running ssh to its host. Blocks while it asks iTerm2 (and, for remote zellij, the host),
+    /// so call it off the main thread. IDE sessions always report false.
     func isTerminalSessionFocused(_ session: AgentSession) -> Bool {
         guard NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.googlecode.iterm2",
             var command = terminalFocusCommands(for: session).first
         else { return false }
         command.append("--check")
-        if session.remoteHost == nil, let zellij = session.zellij {
+        if let zellij = session.zellij {
+            // Local focus commands already name the zellij session; remote ones don't.
+            if session.remoteHost != nil { command += ["--zellij-session", zellij.session] }
             command += ["--zellij-pane", zellij.paneId, "--zellij-bin", zellij.bin]
         }
 

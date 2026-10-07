@@ -24,10 +24,12 @@ public struct RemoteHost: Identifiable, Codable, Equatable {
     /// Display label (defaults to host if empty)
     public var label: String
 
-    /// Whether this host is enabled for polling
+    /// Whether this host is watched
     public var isEnabled: Bool
 
-    /// Polling interval in seconds
+    /// Seconds to wait before reconnecting after the connection to the host drops.
+    /// (The name predates streaming, when hosts were polled at this interval; it is kept
+    /// because it is the key the host list is stored under.)
     public var pollInterval: TimeInterval
 
     /// Hook installation status

@@ -59,6 +59,41 @@ class TestGetContextWindow:
                 assert hook.get_context_window("claude-haiku-4-5") == 200000
 
 
+# -- Finding Claude's pid --
+
+
+class TestFindClaudePid:
+    @staticmethod
+    def _proc(tmp_path, processes):
+        """Fake /proc: {pid: (comm, ppid)}."""
+        for pid, (comm, ppid) in processes.items():
+            d = tmp_path / str(pid)
+            d.mkdir()
+            (d / "comm").write_text(comm + "\n")
+            (d / "stat").write_text(f"{pid} ({comm}) S {ppid} 1 1 0 -1")
+        return tmp_path
+
+    def test_parent_is_claude(self, hook, tmp_path, monkeypatch):
+        monkeypatch.setattr(hook.os, "getppid", lambda: 100)
+        proc = self._proc(tmp_path, {100: ("claude", 1)})
+        assert hook.find_claude_pid(proc) == 100
+
+    def test_skips_the_shell_that_ran_the_hook(self, hook, tmp_path, monkeypatch):
+        """dash doesn't exec the hook, so our parent is a short-lived `sh`."""
+        monkeypatch.setattr(hook.os, "getppid", lambda: 200)
+        proc = self._proc(tmp_path, {200: ("sh", 100), 100: ("claude", 1)})
+        assert hook.find_claude_pid(proc) == 100
+
+    def test_handles_spaces_in_process_names(self, hook, tmp_path, monkeypatch):
+        monkeypatch.setattr(hook.os, "getppid", lambda: 200)
+        proc = self._proc(tmp_path, {200: ("sh", 100), 100: ("node (claude)", 1)})
+        assert hook.find_claude_pid(proc) == 100
+
+    def test_without_proc_uses_the_parent(self, hook, tmp_path, monkeypatch):
+        monkeypatch.setattr(hook.os, "getppid", lambda: 300)
+        assert hook.find_claude_pid(tmp_path / "missing") == 300
+
+
 # -- Transcript reading --
 
 

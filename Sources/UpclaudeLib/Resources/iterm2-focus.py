@@ -2,8 +2,12 @@
 """Focus an iTerm2 pane by its session UUID using AppleScript.
 
 Usage: python3 iterm2-focus.py <iterm2_session_uuid> [--zellij-session <name>]
-       python3 iterm2-focus.py <iterm2_session_uuid> --check
+       python3 iterm2-focus.py - --ssh-host <host>
+       python3 iterm2-focus.py <uuid or -> --check [--ssh-host <host>]
            [--zellij-session <name> --zellij-pane <pane_id> --zellij-bin <path>]
+
+With --ssh-host the session runs on a remote machine: the pane is the one running the local
+ssh client connected to that host, and any zellij is the one on the remote side.
 
 With --check nothing is focused: the exit status says whether the user is already looking
 at the pane (0) or not (1).
@@ -18,6 +22,7 @@ goes stale as soon as that iTerm2 tab is closed and zellij is re-attached elsewh
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import sys
 import time
@@ -125,6 +130,51 @@ def zellij_client_tty(session: str) -> str | None:
     return f"/dev/{clients[0][1]}"
 
 
+def ssh_client_tty(host: str) -> str | None:
+    """Return the terminal of an interactive ssh client connected to `host`, newest first.
+
+    Clients without a terminal (the app's own background connections) are ignored.
+    """
+    ttys: list[tuple[int, str]] = []
+    for line in _run(["ps", "-axo", "pid=,tty=,command="]).splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 3 or not parts[0].isdigit() or parts[1] in ("??", "-"):
+            continue
+        argv = parts[2].split()
+        if argv[0].rsplit("/", 1)[-1] != "ssh":
+            continue
+        if any(arg == host or arg.endswith("@" + host) for arg in argv[1:]):
+            ttys.append((int(parts[0]), parts[1]))
+    return f"/dev/{max(ttys)[1]}" if ttys else None
+
+
+def _zellij_command(
+    binary: str, session: str, action: str, ssh_host: str | None
+) -> list[str]:
+    """Command for a zellij action, run on `ssh_host` when the session is remote."""
+    command = [binary, "--session", session, "action", action]
+    if not ssh_host:
+        return command
+    return [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=5",
+        "-o",
+        "ClearAllForwardings=yes",
+        ssh_host,
+        " ".join(shlex.quote(part) for part in command),
+    ]
+
+
+def pane_tty(zellij_session: str | None, ssh_host: str | None) -> str | None:
+    """Terminal of the local pane that leads to the session, when it can't be named by UUID."""
+    if ssh_host:
+        return ssh_client_tty(ssh_host)
+    return zellij_client_tty(zellij_session) if zellij_session else None
+
+
 CURRENT_PANE_SCRIPT = """
 tell application "iTerm2"
     if not frontmost then return ""
@@ -143,27 +193,32 @@ def parse_focused_panes(list_clients_output: str) -> set[str]:
     return panes
 
 
-def is_focused(uuid: str, zellij: dict[str, str]) -> bool:
+def is_focused(uuid: str, options: dict[str, str]) -> bool:
     """Whether iTerm2 is frontmost and showing the given pane (and zellij pane, if any)."""
     current = _run(["osascript", "-e", CURRENT_PANE_SCRIPT]).strip()
     if "|" not in current:
         return False
     current_tty, current_id = current.split("|", 1)
 
-    session = zellij.get("--zellij-session")
-    if not session:
-        return current_id == uuid
-    if zellij_client_tty(session) != current_tty:
+    session, ssh_host = options.get("--zellij-session"), options.get("--ssh-host")
+    if ssh_host or session:
+        if pane_tty(session, ssh_host) != current_tty:
+            return False
+    elif current_id != uuid:
         return False
-    pane, binary = zellij.get("--zellij-pane"), zellij.get("--zellij-bin")
-    if not (pane and binary):
+
+    pane, binary = options.get("--zellij-pane"), options.get("--zellij-bin")
+    if not (session and pane and binary):
         return True
-    clients = _run([binary, "--session", session, "action", "list-clients"])
+    clients = _run(_zellij_command(binary, session, "list-clients", ssh_host))
     return pane in parse_focused_panes(clients)
 
 
-def focus(uuid: str, zellij_session: str | None) -> int:
-    tty = zellij_client_tty(zellij_session) if zellij_session else None
+def focus(uuid: str, zellij_session: str | None, ssh_host: str | None = None) -> int:
+    tty = pane_tty(zellij_session, ssh_host)
+    if ssh_host and not tty:
+        _log(f"host {ssh_host}: no local ssh client with a terminal")
+        return 1
     if tty:
         script = APPLESCRIPT_TEMPLATE.format(prop="tty", value=tty)
     else:
@@ -198,27 +253,28 @@ def main() -> int:
     if check:
         args.remove("--check")
 
-    zellij: dict[str, str] = {}
-    for option in ("--zellij-session", "--zellij-pane", "--zellij-bin"):
+    options: dict[str, str] = {}
+    for option in ("--zellij-session", "--zellij-pane", "--zellij-bin", "--ssh-host"):
         if option not in args:
             continue
         index = args.index(option)
         if index + 1 >= len(args):
             print(f"{option} needs a value", file=sys.stderr)
             return 1
-        zellij[option] = args[index + 1]
+        options[option] = args[index + 1]
         del args[index : index + 2]
 
     if len(args) != 1:
         print(
-            f"Usage: {sys.argv[0]} <iterm2_session_uuid> [--zellij-session <name>] [--check]",
+            f"Usage: {sys.argv[0]} <iterm2_session_uuid or -> [--zellij-session <name>]"
+            " [--ssh-host <host>] [--check]",
             file=sys.stderr,
         )
         return 1
 
     if check:
-        return 0 if is_focused(args[0], zellij) else 1
-    return focus(args[0], zellij.get("--zellij-session"))
+        return 0 if is_focused(args[0], options) else 1
+    return focus(args[0], options.get("--zellij-session"), options.get("--ssh-host"))
 
 
 if __name__ == "__main__":

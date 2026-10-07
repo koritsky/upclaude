@@ -216,6 +216,34 @@ def zellij_pane_from_env() -> dict[str, str] | None:
     return {"session": session, "pane_id": f"terminal_{pane}", "bin": binary}
 
 
+# Shells that may sit between Claude Code and this script.
+_SHELL_NAMES = {"sh", "dash", "bash", "zsh", "ash", "ksh", "fish"}
+
+
+def find_claude_pid(proc_root: Path = Path("/proc")) -> int:
+    """Return the pid of the Claude Code process that ran this hook.
+
+    Claude Code runs hooks through `sh -c`. Where sh replaces itself with the command (bash,
+    as on macOS) our parent is Claude. Where it doesn't (dash, as on Debian and Ubuntu) our
+    parent is that shell, which exits as soon as the hook returns; recording its pid makes
+    the watcher treat the session as dead and delete it. So skip shells on the way up.
+
+    Without /proc (macOS) the parent is used as is.
+    """
+    pid = os.getppid()
+    for _ in range(3):
+        try:
+            name = (proc_root / str(pid) / "comm").read_text().strip()
+            if name not in _SHELL_NAMES:
+                break
+            # "pid (comm) state ppid ..."; comm may contain spaces, so split after it.
+            stat = (proc_root / str(pid) / "stat").read_text()
+            pid = int(stat.rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            break
+    return pid
+
+
 def get_git_branch(cwd: str) -> str | None:
     """Return the current git branch name for the given directory, or None."""
     if not cwd:
@@ -1527,7 +1555,7 @@ def main() -> None:
     prompt: str = hook_input.get("prompt", "")
     model: str = hook_input.get("model", "")
     tool_use_id: str = hook_input.get("tool_use_id", "")
-    claude_pid = os.getppid()
+    claude_pid = find_claude_pid()
 
     if not session_id or os.environ.get("_UPCLAUDE_TITLE_GEN"):
         print('{"suppressOutput": true}')
