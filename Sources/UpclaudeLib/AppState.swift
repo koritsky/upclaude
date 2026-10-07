@@ -459,7 +459,25 @@ public class AppState {
         let focusScript = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".upclaude/iterm2-focus.py")
         guard FileManager.default.fileExists(atPath: focusScript.path) else { return }
-        Self.runProcess("/usr/bin/python3", arguments: [focusScript.path, uuid])
+        var arguments = [focusScript.path, uuid]
+        // Inside zellij the recorded UUID goes stale once the hosting tab is closed, so let the
+        // script find the pane through the zellij client that is attached right now.
+        if session.remoteHost == nil, let zellij = session.zellij {
+            arguments += ["--zellij-session", zellij.session]
+        }
+        Self.runProcess("/usr/bin/python3", arguments: arguments)
+        focusZellijPane(session)
+    }
+
+    /// Inside zellij the iTerm2 pane only gets us to the multiplexer, so also ask zellij to
+    /// focus the session's own pane, which switches to its tab as well.
+    private func focusZellijPane(_ session: AgentSession) {
+        guard session.remoteHost == nil, let zellij = session.zellij,
+            FileManager.default.isExecutableFile(atPath: zellij.bin)
+        else { return }
+        Self.runProcess(
+            zellij.bin,
+            arguments: ["--session", zellij.session, "action", "focus-pane-id", zellij.paneId])
     }
 
     public func focusIDESession(_ session: AgentSession) {

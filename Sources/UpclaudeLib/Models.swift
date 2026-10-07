@@ -177,6 +177,29 @@ public enum AgentStatus: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - Zellij Pane
+
+/// Where a session lives inside the zellij terminal multiplexer, recorded by the hook.
+public struct ZellijPane: Codable, Equatable {
+    public let session: String
+    /// Pane id in the form zellij's CLI expects, e.g. "terminal_10".
+    public let paneId: String
+    /// Absolute path to the zellij binary, since the app doesn't share the shell's PATH.
+    public let bin: String
+
+    public init(session: String, paneId: String, bin: String) {
+        self.session = session
+        self.paneId = paneId
+        self.bin = bin
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case session
+        case paneId = "pane_id"
+        case bin
+    }
+}
+
 // MARK: - Subagent
 
 /// A subagent spawned by a parent session via the Agent tool.
@@ -281,6 +304,9 @@ public struct AgentSession: Identifiable, Codable, Equatable {
     /// iTerm2 session UUID, written back by the iTerm2 integration script
     public var iterm2SessionId: String?
 
+    /// Zellij session and pane hosting this session, if it runs inside zellij
+    public var zellij: ZellijPane?
+
     /// AI-generated session title (available after title generation completes)
     public var title: String?
 
@@ -346,6 +372,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         case remoteHost = "remote_host"
         case githubRepo = "github_repo"
         case iterm2SessionId = "iterm2_session_id"
+        case zellij
         case title
         case firstPrompt = "first_prompt"
         case startSha = "start_sha"
@@ -381,6 +408,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         remoteHost: String? = nil,
         githubRepo: String? = nil,
         iterm2SessionId: String? = nil,
+        zellij: ZellijPane? = nil,
         title: String? = nil,
         firstPrompt: String? = nil,
         startSha: String? = nil,
@@ -414,6 +442,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         self.remoteHost = remoteHost
         self.githubRepo = githubRepo
         self.iterm2SessionId = iterm2SessionId
+        self.zellij = zellij
         self.title = title
         self.firstPrompt = firstPrompt
         self.startSha = startSha
@@ -450,6 +479,7 @@ public struct AgentSession: Identifiable, Codable, Equatable {
         remoteHost = try c.decodeIfPresent(String.self, forKey: .remoteHost)
         githubRepo = try c.decodeIfPresent(String.self, forKey: .githubRepo)
         iterm2SessionId = try c.decodeIfPresent(String.self, forKey: .iterm2SessionId)
+        zellij = try c.decodeIfPresent(ZellijPane.self, forKey: .zellij)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         firstPrompt = try c.decodeIfPresent(String.self, forKey: .firstPrompt)
         startSha = try c.decodeIfPresent(String.self, forKey: .startSha)

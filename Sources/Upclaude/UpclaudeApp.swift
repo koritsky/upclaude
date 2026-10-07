@@ -46,6 +46,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Always update hook script (idempotent)
         try? hookManager.installHookScript()
+        // Keep already-installed iTerm2 scripts in step with this build.
+        if ITerm2Installer.isInstalled { try? ITerm2Installer.install() }
 
         // If all expected hooks are registered, nothing more to do
         guard !hookManager.isInstalled else { return }
