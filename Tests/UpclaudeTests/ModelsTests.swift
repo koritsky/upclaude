@@ -223,4 +223,23 @@ struct ModelsTests {
         )
         #expect(session.contextSnapshots == nil)
     }
+
+    // MARK: - ClaudeSpinner
+
+    @Test("ClaudeSpinner cycle goes out and back, resting on the smallest and fullest glyphs")
+    func claudeSpinnerCycle() {
+        let cycle = ClaudeSpinner.cycle(scale: 2)
+        // Six glyphs out, four back; the ends aren't repeated but are held longer.
+        #expect(cycle.frames.count == 10)
+        #expect(
+            cycle.durations == [0.36, 0.12, 0.12, 0.12, 0.12, 0.36, 0.12, 0.12, 0.12, 0.12])
+    }
+
+    @Test("ClaudeSpinner glyphs are drawn in a fixed square at the backing scale")
+    func claudeSpinnerGlyphImage() {
+        let image = ClaudeSpinner.glyphImage(ClaudeSpinner.restingGlyph, color: .gray, scale: 2)
+        #expect(image?.width == 24)
+        #expect(image?.height == 24)
+        #expect(ClaudeSpinner.cycle(scale: 3).frames.first?.width == 36)
+    }
 }

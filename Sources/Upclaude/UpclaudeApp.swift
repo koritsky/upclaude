@@ -93,7 +93,7 @@ struct UpclaudeApp: App {
     @State private var appState: AppState = {
         let state = AppState()
         state.start()
-        MenuBarPulseAnimator.shared.start(appState: state)
+        MenuBarSpinnerAnimator.shared.start(appState: state)
         return state
     }()
     var body: some Scene {
@@ -327,12 +327,10 @@ struct MenuBarLabel: View {
     @AppStorage("usageRingThreshold") private var usageRingThreshold = 50
     @State private var menuBarAppearanceObserver = MenuBarAppearanceObserver()
 
-    /// Seconds for one full fade-out/fade-in cycle of the "working" dots.
-    static let pulsePeriod: TimeInterval = 4.0
-    /// Lowest opacity the "working" dots fade to.
-    static let pulseMinAlpha: CGFloat = 0.3
-
     static let dotSize: CGFloat = 8
+    /// Asterisks are wider than a dot's slot; this much room on each side of the image keeps
+    /// the outermost ones from being clipped.
+    static let edgePadding: CGFloat = (ClaudeSpinner.side - dotSize) / 2
     static let dotSpacing: CGFloat = 4
     static let maxDots = 8
     static let ringDiameter: CGFloat = 14
@@ -368,9 +366,9 @@ struct MenuBarLabel: View {
             }
         } else if let image = Self.renderDotsImage(
             approval: approval, waiting: waiting, working: working,
-            // Working dots are drawn at their dimmest; MenuBarPulseAnimator fades a full-strength
-            // copy in and out on top of them.
-            workingAlpha: MenuBarPulseAnimator.reduceMotion ? 1 : Self.pulseMinAlpha,
+            // MenuBarSpinnerAnimator draws working sessions, so their slots are left empty
+            // here unless nothing will animate.
+            staticWorking: MenuBarSpinnerAnimator.reduceMotion,
             useRedYellowMode: useRedYellowMode,
             usagePct: showRing ? usagePct : nil
         ) {
@@ -473,25 +471,36 @@ struct MenuBarLabel: View {
     /// so it adapts to wallpaper-driven tinting while dots keep their colors.
     static func renderDotsImage(
         approval: Int, waiting: Int, working: Int,
-        workingAlpha: CGFloat,
+        staticWorking: Bool,
         useRedYellowMode: Bool,
         usagePct: CGFloat? = nil
     ) -> NSImage? {
-        // Build dot list: most urgent first.
-        // Red (approval) and green (waiting) need the user; blue (working) pulses via workingAlpha.
-        var dots: [NSColor] = []
-        for _ in 0..<approval { dots.append(.systemRed) }
-        for _ in 0..<waiting { dots.append(.systemGreen) }
-        for _ in 0..<working { dots.append(.systemBlue.withAlphaComponent(workingAlpha)) }
-        guard !dots.isEmpty else { return nil }
+        // Build mark list: most urgent first.
+        enum Mark {
+            /// Needs a decision: a red dot.
+            case dot(NSColor)
+            /// Claude Code's asterisk, not spinning.
+            case asterisk(NSColor)
+            /// A working session's slot, drawn by MenuBarSpinnerAnimator.
+            case empty
+        }
+        var marks: [Mark] = []
+        for _ in 0..<approval { marks.append(.dot(.systemRed)) }
+        // A session waiting on you is a grey asterisk, as Claude Code shows when idle. It is
+        // neutral, so it takes the menu bar's own foreground color.
+        let idleColor = statusBarForegroundColor().withAlphaComponent(0.6)
+        for _ in 0..<waiting { marks.append(.asterisk(idleColor)) }
+        for _ in 0..<working { marks.append(staticWorking ? .asterisk(ClaudeSpinner.color) : .empty) }
+        guard !marks.isEmpty else { return nil }
 
-        let capped = dots.prefix(maxDots)
+        let capped = marks.prefix(maxDots)
         let menuBarHeight = NSStatusBar.system.thickness
 
         let hasRing = usagePct != nil
         let ringExtra: CGFloat = hasRing ? (ringSpacing + ringDiameter) : 0
 
-        let dotsWidth = CGFloat(capped.count) * dotSize + CGFloat(capped.count - 1) * dotSpacing
+        let dotsWidth =
+            CGFloat(capped.count) * dotSize + CGFloat(capped.count - 1) * dotSpacing + 2 * edgePadding
         let imageSize = NSSize(
             width: dotsWidth + ringExtra,
             height: menuBarHeight
@@ -501,13 +510,26 @@ struct MenuBarLabel: View {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
 
-        // Draw dots
+        // Draw marks
         let dotY = (menuBarHeight - dotSize) / 2
-        for (index, color) in capped.enumerated() {
-            let x = CGFloat(index) * (dotSize + dotSpacing)
-            let dotRect = NSRect(x: x, y: dotY, width: dotSize, height: dotSize)
-            color.setFill()
-            NSBezierPath(ovalIn: dotRect).fill()
+        let context = NSGraphicsContext.current?.cgContext
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        for (index, mark) in capped.enumerated() {
+            let x = edgePadding + CGFloat(index) * (dotSize + dotSpacing)
+            let slot = NSRect(x: x, y: dotY, width: dotSize, height: dotSize)
+            switch mark {
+            case .dot(let color):
+                context?.setFillColor(color.cgColor)
+                context?.fillEllipse(in: slot)
+            case .asterisk(let color):
+                if let image = ClaudeSpinner.glyphImage(
+                    ClaudeSpinner.restingGlyph, color: color, scale: scale)
+                {
+                    context?.draw(image, in: slot.insetBy(dx: -edgePadding, dy: -edgePadding))
+                }
+            case .empty:
+                break
+            }
         }
 
         // Draw the usage ring using the menu bar's resolved foreground color,
@@ -548,18 +570,19 @@ struct MenuBarLabel: View {
     }
 }
 
-/// Pulses the "working" dots with a Core Animation overlay on the status item's button.
+/// Spins Claude Code's asterisk for each working session, in a Core Animation overlay on the
+/// status item's button.
 ///
 /// The SwiftUI label must stay static: updating a MenuBarExtra label at animation rates makes
 /// the status item stop responding to clicks, and swapping the button's image from a timer
-/// flickers because SwiftUI keeps re-applying its own image. So the label draws the working
-/// dots at their dimmest, and this overlay fades full-strength dots in and out on top.
-final class MenuBarPulseAnimator {
-    static let shared = MenuBarPulseAnimator()
+/// flickers because SwiftUI keeps re-applying its own image. So the label leaves working
+/// sessions' slots empty, and this overlay draws the spinner in them.
+final class MenuBarSpinnerAnimator {
+    static let shared = MenuBarSpinnerAnimator()
 
     private weak var appState: AppState?
     private var timer: Timer?
-    private var overlay: PulseOverlayView?
+    private var overlay: SpinnerOverlayView?
     private var layout: Layout?
 
     /// Everything the overlay's geometry depends on; the overlay is rebuilt when it changes.
@@ -577,7 +600,8 @@ final class MenuBarPulseAnimator {
     func start(appState: AppState) {
         self.appState = appState
         guard timer == nil else { return }
-        // Only keeps the overlay in step with session counts; the fade itself runs in Core Animation.
+        // Only keeps the overlay in step with session counts; the spinner itself runs in
+        // Core Animation.
         let timer = Timer(timeInterval: 0.2, repeats: true) { [weak self] _ in
             self?.sync()
         }
@@ -601,7 +625,7 @@ final class MenuBarPulseAnimator {
         let threshold = UserDefaults.standard.object(forKey: "usageRingThreshold") as? Int ?? 50
         let hasRing = appState.usageLimits.map { $0.fiveHour.utilization >= Double(threshold) } ?? false
         let step = MenuBarLabel.dotSize + MenuBarLabel.dotSpacing
-        let dotsWidth = CGFloat(total) * step - MenuBarLabel.dotSpacing
+        let dotsWidth = CGFloat(total) * step - MenuBarLabel.dotSpacing + 2 * MenuBarLabel.edgePadding
         let ringExtra = hasRing ? MenuBarLabel.ringSpacing + MenuBarLabel.ringDiameter : 0
 
         let newLayout = Layout(
@@ -614,33 +638,49 @@ final class MenuBarPulseAnimator {
         removeOverlay()
         guard newLayout.workingDots > 0 else { return }
 
-        let view = PulseOverlayView(frame: button.bounds)
+        let view = SpinnerOverlayView(frame: button.bounds)
         view.autoresizingMask = [.width, .height]
-        // The button centers its image, so the dots start this far in.
-        let originX = (button.bounds.width - newLayout.imageWidth) / 2
+        let scale = button.window?.backingScaleFactor ?? 2
+        // The button centers its image, so the first slot starts this far in.
+        let originX = (button.bounds.width - newLayout.imageWidth) / 2 + MenuBarLabel.edgePadding
         let dotY = (button.bounds.height - MenuBarLabel.dotSize) / 2
         for index in newLayout.firstWorkingIndex..<(newLayout.firstWorkingIndex + newLayout.workingDots) {
-            let dot = CALayer()
-            dot.frame = CGRect(
+            let slot = CGRect(
                 x: originX + CGFloat(index) * step, y: dotY,
                 width: MenuBarLabel.dotSize, height: MenuBarLabel.dotSize)
-            dot.cornerRadius = MenuBarLabel.dotSize / 2
-            dot.backgroundColor = NSColor.systemBlue.cgColor
-            view.layer?.addSublayer(dot)
+            view.layer?.addSublayer(Self.spinnerLayer(slot: slot, scale: scale))
         }
-
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 0
-        fade.toValue = 1
-        fade.duration = MenuBarLabel.pulsePeriod / 2
-        fade.autoreverses = true
-        fade.repeatCount = .infinity
-        fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        view.layer?.add(fade, forKey: "pulse")
 
         button.addSubview(view)
         overlay = view
         layout = newLayout
+    }
+
+    /// A layer stepping through Claude Code's spinner glyphs, centered on a dot's slot.
+    private static func spinnerLayer(slot: CGRect, scale: CGFloat) -> CALayer {
+        let cycle = ClaudeSpinner.cycle(scale: scale)
+        let layer = CALayer()
+        layer.frame = slot.insetBy(dx: -MenuBarLabel.edgePadding, dy: -MenuBarLabel.edgePadding)
+        layer.contentsScale = scale
+        layer.contents = cycle.frames.first
+
+        // Discrete keyframes: frame i shows from keyTimes[i] to keyTimes[i + 1].
+        let total = cycle.durations.reduce(0, +)
+        var elapsed: TimeInterval = 0
+        var keyTimes: [NSNumber] = [0]
+        for duration in cycle.durations {
+            elapsed += duration
+            keyTimes.append(NSNumber(value: total > 0 ? elapsed / total : 1))
+        }
+
+        let spin = CAKeyframeAnimation(keyPath: "contents")
+        spin.values = cycle.frames
+        spin.keyTimes = keyTimes
+        spin.calculationMode = .discrete
+        spin.duration = total
+        spin.repeatCount = .infinity
+        layer.add(spin, forKey: "spin")
+        return layer
     }
 
     private func removeOverlay() {
@@ -668,8 +708,8 @@ final class MenuBarPulseAnimator {
     }
 }
 
-/// Layer-backed view holding the pulsing dots. Ignores clicks so the status item still opens.
-private final class PulseOverlayView: NSView {
+/// Layer-backed view holding the spinners. Ignores clicks so the status item still opens.
+private final class SpinnerOverlayView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
